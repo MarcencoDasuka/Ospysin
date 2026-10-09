@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ospysin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ospysin}
+      POSTGRES_USER: ${POSTGRES_USER:-ospysin_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_secret_locally}
+    ports:
+      - "${APP_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ospysin_admin} -d ${POSTGRES_DB:-ospysin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ospysin-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ospysin}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ospysin_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_this_secret_locally}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M}
+    ports:
+      - "${APP_BIND_HOST:-127.0.0.1}:${SERVER_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ospysin-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_BIND_HOST:-127.0.0.1}:${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  postgres_data:
+    driver: local
