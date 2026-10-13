@@ -48,6 +48,10 @@ APP_BIND_HOST=127.0.0.1
 POSTGRES_DB=ospysin
 POSTGRES_USER=ospysin_admin
 POSTGRES_PASSWORD=your_secure_password_here
+FLYWAY_USER=flyway_user
+FLYWAY_PASSWORD=your_flyway_secret_here
+APP_DB_USER=ospysin_app
+APP_DB_PASSWORD=your_app_secret_here
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M
 DEFAULT_AUDIT_MODE=LOCAL
@@ -75,7 +79,8 @@ docker-compose ps
 
 ### 4. First-Run Initialization
 On first boot:
-- Flyway automatically applies all schema migrations from `V1__init_schema.sql`.
+- PostgreSQL executes `infra/init-db/01-init-roles.sql` initializing `flyway_user` and unprivileged runtime role `ospysin_app`.
+- Flyway connects as `flyway_user` and automatically applies all schema migrations from `V1__init_schema.sql`.
 - Default administrative credentials (`admin`) are initialized with the password configured in `ADMIN_INITIAL_PASSWORD` (or securely generated and output to console on startup), hashed via Argon2id.
 - Backend verifies connectivity to Ollama via `http://host.docker.internal:11434`.
 

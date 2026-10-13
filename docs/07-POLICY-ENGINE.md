@@ -47,6 +47,7 @@ To defend against time-of-check to time-of-use (TOCTOU) DNS rebinding:
 
 ### 3. Scope Containment & Redirect Revalidation
 - **Scope Invariant**: Every tool execution must match an authorized `ScopeAsset`. In v1, scope is strictly locked to the original target host confirmed at session creation and **never expands automatically**. Discovered third-party links or CDNs are stored solely as observational data.
+- **Subdomain Takeover Policy**: For the `subdomain_takeover_check` probe, inspection of subdomains of the target host (`*.<target_host>`) specified by the operator or extracted from session telemetry (`tls_info` SAN list, `extract_links`) is authorized. Outbound HTTP fingerprinting requests to destination CNAME endpoints (e.g. GitHub Pages, AWS S3) are permitted solely for canonical error signature verification, under the strict condition that all resolved IP addresses (including the destination CNAME's resolved IPs) undergo standard `PolicyEngine` evaluation (blocking private, loopback, link-local, and cloud metadata ranges in PUBLIC mode).
 - **HTTP Redirect Revalidation (`301`, `302`, `307`, `308`)**:
   - Automatic redirect following is disabled by default.
   - If enabled (`followRedirects: true`), each redirect hop (capped at **3 hops**) triggers full re-validation: parses the `Location` header, enforces scheme allowlist, resolves DNS, evaluates all resolved IPs through `PolicyEngine`, and re-pins the socket IP before opening the next connection.

@@ -48,7 +48,7 @@ This document establishes the authoritative domain vocabulary for Ospysin. Consi
 
 ### 8. Audit Session (`AuditSession`)
 - **Definition**: An active or completed state machine tracking the sequential execution of tools against a designated target asset.
-- **States**: `CREATED`, `ACTIVE`, `PAUSED`, `COMPLETED`, `ABORTED`.
+- **States**: `ACTIVE`, `COMPLETED`, `ABORTED`.
 
 ### 9. Tool Execution (`ToolExecution`)
 - **Definition**: A single, timestamped execution event of a registered tool from the Tool Catalog within a session.

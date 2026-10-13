@@ -64,7 +64,7 @@ All tool executions, request parameters, responses, policy checks, and operator 
 
 ## Vulnerability Handling & Responsible Disclosure
 
-If passive scanning accidentally uncovers critical vulnerabilities (e.g. exposed environment credentials in public scripts, unsecured directory listings with sensitive customer data):
+If non-destructive inspection accidentally uncovers critical vulnerabilities (e.g. exposed environment credentials in public scripts, unsecured directory listings with sensitive customer data):
 1. **Cease Further Probing**: Do not attempt to exploit or extract additional records.
 2. **Document Findings**: Use Ospysin's observation and finding features to record the factual state.
 3. **Notify System Owner**: Coordinate disclosure using the target's declared security contact (`/.well-known/security.txt`), CERT-RO / relevant national CSIRT, or formal reporting channels.

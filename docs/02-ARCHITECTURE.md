@@ -22,7 +22,7 @@ graph TD
     Backend <-->|JPA / JDBC| Postgres
     Backend -->|Dispatches Task| Worker
     Worker -->|Validates Policy| Backend
-    Worker -->|Passive Inspection| Target
+    Worker -->|Non-Destructive Inspection| Target
     Worker -->|Writes Result| Postgres
     Backend <-->|REST Client| Ollama
 ```
@@ -36,7 +36,7 @@ graph TD
 | **Frontend UI** | Vue 3, TypeScript 5, Vite, Pinia, PrimeVue | Renders 4-panel workspace, presents real-time SSE execution logs, displays raw and parsed payloads, captures user tool triggers. |
 | **Backend Core** | Spring Boot 3.3.x, Java 21 | Enforces authentication, validates sessions, coordinates transactions, provides REST APIs, serves Server-Sent Events (SSE). |
 | **Policy Engine** | Java 21 (In-Memory Module) | Performs SSRF checks, validates IP allowlists/denylists, enforces timeout budgets and payload size limits prior to any network connection. |
-| **Tool Execution Engine** | Java 21, Apache HttpClient / Custom Sockets | Executes passive scanning tools deterministically, normalizes headers/DNS/TLS payloads, generates structured JSON representations. |
+| **Tool Execution Engine** | Java 21, Apache HttpClient / Custom Sockets | Executes non-destructive inspection tools deterministically, normalizes headers/DNS/TLS payloads, generates structured JSON representations. |
 | **LLM Client** | Spring RestClient | Interfaces with Ollama over HTTP, transmits constrained context prompts, validates received tool recommendations against catalog. |
 | **Storage Engine** | PostgreSQL 16, Flyway | Stores relational domain entities (Users, Projects, Sessions, Findings) and append-only tool execution records using JSONB. |
 

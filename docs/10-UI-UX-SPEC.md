@@ -74,10 +74,10 @@ The core operational interface features 4 persistent panels:
    - **External Third-Party Recon**: `dns_lookup`, `whois_lookup` (Passive, external infrastructure queries).
    - **Active Direct Target Probes**: `tls_info`, `http_headers`, `robots_txt`, `sitemap_xml`, `extract_links`, `extract_js_urls`, `tech_detect`, `sensitive_files_check`, `js_secrets_scanner`, `cors_misconfig_check`, `subdomain_takeover_check` (Direct target connections).
    - **Offline Analytical**: `security_headers_score`, `cve_matcher` (Local computation over collected evidence).
-   Execution triggers send `POST /api/sessions/{id}/tools/run`, queueing the job as `202 Accepted`.
+   Execution triggers send `POST /api/sessions/{id}/tools/{toolId}/run`, queueing the job as `202 Accepted`.
 2. **Center Panel: Inspection & Results**:
    - Header with active URL, Inspection Mode badge (`LOCAL` / `PUBLIC`), Session State (`ACTIVE`, `COMPLETED`, `ABORTED`), and action controls (`[Complete Session]`, `[Abort Session]`, `[Export Report]`).
-   - Execution step timeline tabs with statuses (`PENDING`, `RUNNING`, `SUCCESS`, `FAILED`, `CANCELLED`).
+   - Execution step timeline tabs with statuses (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`).
    - Dual-view result viewer (Tabs: `Parsed Structure` tree and `Raw Response` text).
    - **Curated Findings Drawer / Modal**: Allows operator to create findings (`POST /api/sessions/{id}/findings`), edit existing findings, or reject false positives (`POST /api/findings/{id}/reject`) via a mandatory rejection reason dialog.
 3. **Right Panel: LLM Advisor**:
@@ -103,7 +103,7 @@ The core operational interface features 4 persistent panels:
 | [ Run robots.txt    ] | |   X-Frame-Options: DENY                      | | Reason: Inspect crawling policies   |
 | [ ... (9 more)    ]   | | Cookies:                                     | | and unlisted endpoints.             |
 |                       | |   SESSION: Secure, HttpOnly, SameSite=Lax    | |-------------------------------------|
-| OFFLINE ANALYTICAL    | | Security Score: 85/100                       | | Tactical Chat:                      |
+| OFFLINE ANALYTICAL    | | Server: nginx/1.24.0                         | | Tactical Chat:                      |
 | [ Run Headers Score ] | +----------------------------------------------+ | [Ask advisor...                 ] [>] |
 | [ Run CVE Matcher   ] |                                                  |                                       |
 +-----------------------+--------------------------------------------------+---------------------------------------+
@@ -134,7 +134,7 @@ The core operational interface features 4 persistent panels:
 | **Empty** | All buttons active. | Empty placeholder: *"Select a tool to run"*. | Waiting for first execution. | Initialized, listening for events. |
 | **Pending** | Target tool button shows queued indicator; other buttons remain active for queueing. | Queued card with position indicator. | Idle or shows previous commentary. | Appends `step_queued` event. |
 | **Running** | Triggered button shows spinning loader; other buttons allow queueing distinct tools. | Skeleton loading cards. | Shows *"Executing inspection..."* loader. | Appends `step_started` event. |
-| **Success** | Returns to active state. | Renders interactive JSON tree and highlighted raw text. | Renders comment and suggestion pill. | Appends `step_finished` with duration. |
+| **Completed** | Returns to active state. | Renders interactive JSON tree and highlighted raw text. | Renders comment and suggestion pill. | Appends `step_finished` with duration. |
 | **Error** | Returns to active state. | Displays RFC 9457 problem card with failure reason, type URI, and error detail. | Inactive or offers troubleshooting tip. | Appends `step_failed` or `policy_alert` in red. |
 | **Aborted / Completed** | All execution buttons disabled. | Displays read-only results and summary. | Disables chat and suggestion actions. | Appends `session_completed` or `session_aborted`. |
 
@@ -147,6 +147,7 @@ The Vue frontend hooks into `GET /api/sessions/{id}/events` via `EventSource`:
 - `step_finished`: Replaces loading state with fresh step output.
 - `step_failed`: Renders RFC 9457 problem detail card in results viewer.
 - `llm_comment_ready`: Updates advisor panel with comment and suggestion button.
+- `llm_chat_reply`: Appends assistant response to tactical chat thread.
 - `policy_alert`: Triggers a non-blocking toast banner with policy details.
 - `session_completed`: Marks session COMPLETED, locks execution controls, and enables final report generation.
 - `session_aborted`: Marks session ABORTED, cancels pending spinners, and logs abortion reason.

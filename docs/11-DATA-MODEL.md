@@ -31,7 +31,7 @@ This document defines the relational database architecture in **PostgreSQL 16**.
 
 ### 3. `engagements`
 - `id` (UUID, PRIMARY KEY)
-- `project_id` (UUID, NOT NULL, REFERENCES `projects(id)` ON DELETE CASCADE)
+- `project_id` (UUID, NOT NULL, REFERENCES `projects(id)` ON DELETE RESTRICT)
 - `title` (VARCHAR(150), NOT NULL)
 - `start_date` (DATE NOT NULL)
 - `end_date` (DATE)
@@ -50,10 +50,10 @@ This document defines the relational database architecture in **PostgreSQL 16**.
 
 ### 5. `audit_sessions`
 - `id` (UUID, PRIMARY KEY)
-- `engagement_id` (UUID, REFERENCES `engagements(id)` ON DELETE SET NULL)
+- `engagement_id` (UUID, NOT NULL, REFERENCES `engagements(id)` ON DELETE RESTRICT)
 - `target_url` (VARCHAR(500), NOT NULL)
 - `mode` (VARCHAR(20), NOT NULL, CHECK: `LOCAL`, `PUBLIC`)
-- `state` (VARCHAR(20), NOT NULL, CHECK: `CREATED`, `ACTIVE`, `PAUSED`, `COMPLETED`, `ABORTED`)
+- `state` (VARCHAR(20), NOT NULL, CHECK: `ACTIVE`, `COMPLETED`, `ABORTED`)
 - `scope_acknowledged` (BOOLEAN, NOT NULL DEFAULT FALSE)
 - `scope_ack_version` (VARCHAR(20))
 - `scope_ack_text` (TEXT)
@@ -68,13 +68,15 @@ This document defines the relational database architecture in **PostgreSQL 16**.
 - `session_id` (UUID, NOT NULL, REFERENCES `audit_sessions(id)` ON DELETE RESTRICT)
 - `tool_id` (VARCHAR(50), NOT NULL)
 - `status` (VARCHAR(20), NOT NULL, CHECK: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`)
+- `input_params` (JSONB, NOT NULL DEFAULT '{}'::jsonb)
 - `lease_owner` (UUID)
 - `lease_epoch` (INTEGER NOT NULL DEFAULT 0)
 - `lease_expires_at` (TIMESTAMP WITH TIME ZONE)
 - `attempts` (INTEGER NOT NULL DEFAULT 0)
 - `failure_reason` (VARCHAR(100))
 - `duration_ms` (BIGINT, CHECK: `duration_ms IS NULL OR duration_ms >= 0`)
-- `started_at` (TIMESTAMP WITH TIME ZONE, NOT NULL, DEFAULT NOW())
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL, DEFAULT NOW())
+- `started_at` (TIMESTAMP WITH TIME ZONE)
 - `ended_at` (TIMESTAMP WITH TIME ZONE)
 - **Indexes**: `idx_executions_session_id` on `session_id`, `idx_executions_claim` on `(status, created_at)`.
 
@@ -86,6 +88,7 @@ This document defines the relational database architecture in **PostgreSQL 16**.
 - `score` (INTEGER, CHECK: `score IS NULL OR (score >= 0 AND score <= 100)`)
 - `has_errors` (BOOLEAN NOT NULL DEFAULT FALSE)
 - `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL, DEFAULT NOW())
+- **Data Truncation Rule**: Truncation of `raw_output` to the 1 MB storage cap in the Java execution worker MUST be measured strictly against UTF-8 byte length (`StandardCharsets.UTF_8`), not `String.length()` UTF-16 code units, to ensure non-ASCII content never triggers an `octet_length` constraint violation.
 - **Indexes**: GIN index `idx_tool_results_parsed_gin` on `parsed_data`.
 - **Database Trigger Enforcement**:
   ```sql
@@ -117,16 +120,17 @@ This document defines the relational database architecture in **PostgreSQL 16**.
 ### 9. `findings`
 - `id` (UUID, PRIMARY KEY)
 - `session_id` (UUID, NOT NULL, REFERENCES `audit_sessions(id)` ON DELETE RESTRICT)
+- `observation_id` (UUID, REFERENCES `observations(id)` ON DELETE SET NULL)
 - `title` (VARCHAR(200), NOT NULL)
 - `description` (TEXT NOT NULL)
 - `severity` (VARCHAR(20), NOT NULL, CHECK: `INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`)
-- `confidence` (VARCHAR(20), NOT NULL, CHECK: `TENTATIVE`, `CONFIRMED`)
+- `confidence` (VARCHAR(20), NOT NULL DEFAULT 'TENTATIVE', CHECK: `TENTATIVE`, `CONFIRMED`)
 - `status` (VARCHAR(30), NOT NULL, CHECK: `POTENTIAL`, `UNDER_REVIEW`, `CONFIRMED`, `REJECTED`, `ARCHIVED`)
 - `rejection_reason` (TEXT)
 - `remediation` (TEXT)
 - `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL, DEFAULT NOW())
 - `updated_at` (TIMESTAMP WITH TIME ZONE, NOT NULL, DEFAULT NOW())
-- **Indexes**: `idx_findings_session_id` on `session_id`.
+- **Indexes**: `idx_findings_session_id` on `session_id`, `idx_findings_observation_id` on `observation_id`.
 
 ### 10. `evidence`
 - `id` (UUID, PRIMARY KEY)

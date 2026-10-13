@@ -17,7 +17,7 @@ Thank you for contributing to Ospysin. To preserve architectural integrity, all 
 
 1. Fork the repository and create a feature branch from `main`:
    ```bash
-   git checkout -b feat/add-new-passive-parser
+   git checkout -b feat/add-new-inspection-tool
    ```
 2. Ensure all changes adhere to project formatting:
    - Java: 4 spaces, UTF-8, no wildcard imports.
@@ -34,7 +34,7 @@ Thank you for contributing to Ospysin. To preserve architectural integrity, all 
 
 We enforce [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat:` A new user-facing capability or passive tool.
+- `feat:` A new user-facing capability or inspection tool.
 - `fix:` A bug fix or security patch.
 - `docs:` Documentation additions or updates.
 - `test:` Adding or updating test suites.

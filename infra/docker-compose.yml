@@ -13,6 +13,7 @@ services:
       - "${APP_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ospysin_admin} -d ${POSTGRES_DB:-ospysin}"]
       interval: 5s
@@ -31,8 +32,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ospysin}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ospysin_admin}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_this_secret_locally}
+      SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:-ospysin_app}
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:-app_secret_locally}
+      SPRING_FLYWAY_USER: ${FLYWAY_USER:-flyway_user}
+      SPRING_FLYWAY_PASSWORD: ${FLYWAY_PASSWORD:-flyway_secret_locally}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M}
     ports:

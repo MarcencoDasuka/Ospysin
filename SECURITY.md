@@ -17,7 +17,7 @@ If you identify a security vulnerability within the Ospysin platform itself (e.g
 
 1. **Do NOT open a public GitHub issue.**
 2. Send an email to the security response address:
-   `security@ospysin.local` (or file a private GitHub Security Advisory).
+   `security@ospysin.dev` (or file a private GitHub Security Advisory).
 3. Include the following details:
    - Affected version or commit hash.
    - Step-by-step reproduction guide or minimal proof-of-concept.

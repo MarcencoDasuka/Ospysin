@@ -42,7 +42,7 @@ Authenticates the operator.
   ```
 - **Response**: `200 OK` (sets `JSESSIONID` and `XSRF-TOKEN` cookies).
   ```json
-  { "id": "uuid", "username": "admin", "role": "ROLE_ADMIN" }
+  { "id": "uuid", "username": "admin", "role": "ADMIN" }
   ```
 
 ### `POST /api/auth/logout`
@@ -96,6 +96,28 @@ Returns the list of all 15 registered tools across the 3 execution tiers.
 ---
 
 ### 2. Session Management
+#### `GET /api/sessions`
+Retrieves a paginated list of audit sessions for Screen 1 (Session List).
+- **Query Parameters**: `page` (integer, default 0), `size` (integer, default 20)
+- **Response**: `200 OK`
+```json
+{
+  "content": [
+    {
+      "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "targetUrl": "https://example.com",
+      "mode": "PUBLIC",
+      "state": "ACTIVE",
+      "stepCount": 4,
+      "findingCount": 2,
+      "createdAt": "2026-10-09T01:20:00Z"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
 #### `POST /api/sessions`
 Initializes a new audit session for a target URL.
 - **Request Body**:
@@ -121,7 +143,11 @@ Initializes a new audit session for a target URL.
   "createdAt": "2026-10-09T01:40:00Z"
 }
 ```
-- **Status Codes**: `201 Created`, `400 Bad Request`, `403 Forbidden` (special-purpose IP in PUBLIC mode).
+- **Status Codes**:
+  - `201 Created`: Session created and active.
+  - `400 Bad Request`: Malformed request syntax.
+  - `422 Unprocessable Entity`: Validation failure on `targetUrl` or parameters (`invalidParams`).
+  - `403 Forbidden`: Scope policy violation (e.g. special-purpose IP in PUBLIC mode) or unacknowledged scope.
 
 #### `GET /api/sessions/{id}`
 Retrieves session metadata, current state, and summary statistics.
@@ -161,7 +187,8 @@ Enqueues a tool execution task.
 ```
 - **Status Codes**:
   - `202 Accepted`: Enqueued into background execution queue.
-  - `400 Bad Request`: Unknown tool ID or invalid parameters.
+  - `400 Bad Request`: Malformed JSON or unknown tool ID.
+  - `422 Unprocessable Entity`: Parameter validation error with RFC 9457 `invalidParams`.
   - `403 Forbidden`: Policy engine rejection or unacknowledged scope.
   - `409 Conflict`: An identical tool execution is already `PENDING` or `RUNNING`.
 
@@ -184,6 +211,7 @@ Creates an auditor finding from an observation or manual inspection.
   "title": "Missing Content-Security-Policy",
   "description": "Target server omits CSP header, allowing script injection.",
   "severity": "MEDIUM",
+  "confidence": "TENTATIVE",
   "status": "POTENTIAL",
   "observationId": "uuid-of-observation-optional"
 }
@@ -226,9 +254,12 @@ Links an immutable snippet from `tool_results` to a finding.
 SSE stream pushing updates to the UI.
 - **Headers**: `Accept: text/event-stream`
 - **Stream Event Types**:
-  - `step_started`: `{ "toolId": "...", "executionId": "..." }`
-  - `step_finished`: `{ "executionId": "...", "status": "COMPLETED" | "FAILED" }`
-  - `llm_comment_ready`: `{ "comment": "...", "suggestedTool": "tls_info" }`
+  - `step_queued`: `{ "executionId": "...", "toolId": "...", "status": "PENDING" }`
+  - `step_started`: `{ "executionId": "...", "toolId": "..." }`
+  - `step_finished`: `{ "executionId": "...", "status": "COMPLETED" }`
+  - `step_failed`: `{ "executionId": "...", "status": "FAILED", "failureReason": "..." }`
+  - `llm_comment_ready`: `{ "comment": "...", "suggestedTool": "tls_info", "suggestedReason": "..." }`
+  - `llm_chat_reply`: `{ "reply": "..." }`
   - `policy_alert`: `{ "level": "WARN", "message": "..." }`
   - `session_completed`: `{ "sessionId": "..." }`
   - `session_aborted`: `{ "sessionId": "..." }`
@@ -244,7 +275,7 @@ Requests on-demand re-generation of commentary for a step.
 #### `POST /api/sessions/{id}/llm/chat`
 Ad-hoc tactical sounding board grounded in session context.
 - **Request Body**: `{ "message": "Why is this header significant?" }`
-- **Response**: `200 OK` `{ "reply": "..." }`.
+- **Response**: `202 Accepted` `{ "status": "PENDING", "message": "Chat query enqueued" }` (dispatches background task; result delivered asynchronously via SSE `llm_chat_reply`).
 
 ---
 
@@ -252,3 +283,19 @@ Ad-hoc tactical sounding board grounded in session context.
 #### `GET /api/sessions/{id}/report`
 Exports aggregated session metadata, confirmed findings (excluding `REJECTED`), evidence, and execution history.
 - **Response**: `200 OK`.
+
+---
+
+### 8. System Health
+#### `GET /api/health`
+Retrieves service health status and component connectivity.
+- **Response**: `200 OK`
+```json
+{
+  "status": "UP",
+  "components": {
+    "database": "UP",
+    "ollama": "UP"
+  }
+}
+```

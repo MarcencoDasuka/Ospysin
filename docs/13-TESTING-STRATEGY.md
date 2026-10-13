@@ -42,8 +42,8 @@ Quality and regression prevention are guaranteed via a multi-tier test pyramid. 
   - Enables deterministic testing of lease expiration, timeouts, and stale-worker recovery without brittle `Thread.sleep()` calls.
 - **PostgreSQL Queue Concurrency & Fencing (`@DataJpaTest` / Testcontainers)**:
   - **Deterministic Barrier Test**: Uses `CountDownLatch` or `CompletableFuture` to run concurrent worker claim queries (`SELECT ... FOR UPDATE`); asserts that exactly one worker claims the `RUNNING` lease while the other receives `Optional.empty()`.
-  - **Asynchronous Acceptance Test**: Asserts that `POST /api/sessions/{id}/tools/run` persists a `PENDING` execution and returns `202 Accepted` immediately without blocking on a simulated slow worker task.
-  - **Fencing Test**: Simulates an expired lease epoch ($N$) attempting to write a `SUCCESS` status after a recovery worker has already claimed epoch $N+1$; asserts zero rows updated and rejection of stale worker writes.
+  - **Asynchronous Acceptance Test**: Asserts that `POST /api/sessions/{id}/tools/{toolId}/run` persists a `PENDING` execution and returns `202 Accepted` immediately without blocking on a simulated slow worker task.
+  - **Fencing Test**: Simulates an expired lease epoch ($N$) attempting to write a `COMPLETED` status after a recovery worker has already claimed epoch $N+1$; asserts zero rows updated and rejection of stale worker writes.
 - **Database Immutability & Privileges Integration Test**:
   - Connects via direct JDBC using the runtime application role (`ospysin_app`).
   - Verifies that `UPDATE`, `DELETE`, and `TRUNCATE` statements against `tool_results` and `audit_events` are strictly rejected with database exceptions raised by triggers.

@@ -21,6 +21,8 @@ This document serves as the master execution roadmap for **Ospysin** (OSINT & Se
 ospysin/
 ├── README.md
 ├── LICENSE
+├── SECURITY.md
+├── CONTRIBUTING.md
 ├── .gitignore
 ├── .editorconfig
 ├── docs/
@@ -39,6 +41,7 @@ ospysin/
 │   ├── 12-DEPLOYMENT.md
 │   ├── 13-TESTING-STRATEGY.md
 │   ├── 14-ROADMAP.md
+│   ├── 15-GLOSSARY.md
 │   └── adr/
 │       ├── 0001-modular-monolith.md
 │       ├── 0002-postgres-queue.md
@@ -47,10 +50,10 @@ ospysin/
 │       └── 0005-local-first.md
 ├── backend/
 ├── frontend/
-├── worker/
 ├── infra/
 │   ├── docker-compose.yml
-│   └── .env.example
+│   ├── .env.example
+│   └── init-db/
 └── scripts/
 ```
 
@@ -66,7 +69,7 @@ ospysin/
 - Commit initial repository skeleton under MIT license.
 
 ### Phase 1: Documentation Specification Suite
-Create and verify all 14 architectural documents plus core Architecture Decision Records (ADRs).
+Create and verify all 16 architectural documents (docs/00 through docs/15) plus core Architecture Decision Records (ADRs).
 - `00-VISION.md`: Objectives, personas, non-goals, v1 success criteria.
 - `01-SCOPE.md`: Clear boundary between v1 registered tools and deferred destructive exploitation.
 - `02-ARCHITECTURE.md`: Modular monolith design, decoupled transaction boundaries, Mermaid sequence diagrams.
@@ -81,6 +84,8 @@ Create and verify all 14 architectural documents plus core Architecture Decision
 - `11-DATA-MODEL.md`: Relational PostgreSQL tables, foreign keys, JSONB columns, Flyway migration plan.
 - `12-DEPLOYMENT.md`: Docker Compose deployment, host-bound Ollama integration, backup procedures.
 - `13-TESTING-STRATEGY.md`: Unit testing, Testcontainers integration tests, Playwright E2E.
+- `14-ROADMAP.md`: Phased roadmap and step-by-step master plan.
+- `15-GLOSSARY.md`: Authoritative domain terminology and taxonomy.
 - `adr/*`: Architectural Decision Records for core structural choices.
 
 ### Phase 2: Sign-Off & Verification
@@ -101,7 +106,7 @@ Create and verify all 14 architectural documents plus core Architecture Decision
 
 ### Phase 5: First Tool End-to-End (`http_headers`)
 - `OspysinTool` interface, `ToolInput`, and `ToolResult` contracts.
-- `HttpHeadersTool` implementation with security headers scoring.
+- `HttpHeadersTool` implementation (response header normalization and cookie security; scoring isolated to `security_headers_score`).
 - `PolicyEngine` v1 implementing URL validation and private IP checks.
 - Session lifecycle service and execution event publishing.
 - Session workspace UI with tool catalog, step history, and result display.
@@ -113,8 +118,8 @@ Create and verify all 14 architectural documents plus core Architecture Decision
 - Advisor panel UI displaying contextual findings and one-click tool suggestion triggers.
 - Isolated integration tests with mock responses and real Ollama instances.
 
-### Phase 7: Tool Catalog Completion (All 15 Tools across 3 Tiers)
-Implement remaining reconnaissance, vulnerability assessment, and exploit surface discovery tools:
+### Phase 7: Tool Catalog Completion (Remaining 14 Tools, Completing All 15 Tools)
+Implement remaining 14 reconnaissance, vulnerability assessment, and exploit surface discovery tools (`http_headers` implemented in Phase 5):
 - **External Third-Party Recon**:
   1. `dns_lookup` (dnsjava)
   2. `whois_lookup` (RFC-compliant whois client)
@@ -137,7 +142,7 @@ Implement remaining reconnaissance, vulnerability assessment, and exploit surfac
 - User-managed findings workflow (`POTENTIAL` → `UNDER_REVIEW` → `CONFIRMED` / `REJECTED`).
 - Rejection dialog enforcing mandatory operator justification; rejected findings are excluded from primary report.
 - Evidence linking from immutable tool outputs.
-- Comprehensive HTML report generation with printable CSS / PDF export (machine-readable SARIF/JSON export deferred to post-v1).
+- Comprehensive HTML report generation with printable CSS / PDF export (internal session JSON report / audit trail via `GET /api/sessions/{id}/report` is supported in v1; external machine-readable SARIF pipelines deferred to post-v1).
 
 ### Phase 9: Hardening, Test Suite & v0.1.0 Release
 - Target 80% backend and 60% frontend automated test coverage.
@@ -153,7 +158,7 @@ Implement remaining reconnaissance, vulnerability assessment, and exploit surfac
 - Multi-agent orchestration frameworks or automated autonomous tool chaining without operator confirmation.
 - Vector databases, embeddings, or RAG infrastructure.
 - Distributed message brokers (Kafka/RabbitMQ) or Kubernetes clusters.
-- Machine-readable SARIF / JSON vulnerability export pipelines (deferred to post-v1; v1 focuses on HTML / PDF print).
+- Machine-readable SARIF vulnerability exchange pipeline (deferred to post-v1; internal session JSON report / audit trail is supported in v1 via `/api/sessions/{id}/report`).
 - Document management for uploaded physical scans/PDFs of testing permissions (v1 uses cryptographic server-side attestation).
 - Direct arbitrary host shell command execution.
 - External paid intelligence APIs (Shodan, VirusTotal, Censys).

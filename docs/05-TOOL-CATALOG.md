@@ -7,20 +7,20 @@ This catalog defines the 15 reconnaissance, vulnerability assessment, and exploi
 
 ## Canonical 3-Tier Tool Taxonomy
 
-The 15 registered tools are organized into three canonical operational tiers based on their network interaction model:
+The 15 registered tools are organized into three canonical operational tiers based on their network interaction model (`executionType` enum):
 
 ```text
 +----------------------------------------------------------------------------------------------------+
-| 1. External Third-Party Recon (2 tools)                                                            |
+| 1. External Third-Party Recon [executionType: THIRD_PARTY_RECON] (2 tools)                         |
 |    - Queries external registries and third-party DNS infrastructure (no direct target server I/O)  |
 |    - dns_lookup, whois_lookup                                                                      |
 +----------------------------------------------------------------------------------------------------+
-| 2. Active Direct Target Probes (11 tools)                                                          |
+| 2. Active Direct Target Probes [executionType: DIRECT_TARGET_PROBE] (11 tools)                      |
 |    - Directly connects to the target host/port via TCP/TLS socket or HTTP request                  |
 |    - tls_info, http_headers, robots_txt, sitemap_xml, extract_links, extract_js_urls, tech_detect,  |
 |      sensitive_files_check, js_secrets_scanner, cors_misconfig_check, subdomain_takeover_check     |
 +----------------------------------------------------------------------------------------------------+
-| 3. Offline Analytical Tools (2 tools)                                                              |
+| 3. Offline Analytical Tools [executionType: OFFLINE_ANALYSIS] (2 tools)                            |
 |    - Executes purely local computation over evidence collected in preceding steps (0 network I/O) |
 |    - security_headers_score, cve_matcher                                                           |
 +----------------------------------------------------------------------------------------------------+
@@ -39,26 +39,26 @@ All tool executions adhere to four distinct payload thresholds to prevent memory
 
 ## Catalog Summary
 
-| ID | Name | Tier | Risk | Timeout | Wire Cap | Decompressed Cap |
+| ID | Name | Execution Type (`executionType`) | Risk | Timeout | Wire Cap | Decompressed Cap |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **External Third-Party Recon** | | | | | | |
-| `dns_lookup` | DNS Record Enumeration | External Recon | LOW | 10s | 32 KB | 32 KB |
-| `whois_lookup` | WHOIS / RDAP Registration | External Recon | LOW | 15s | 32 KB | 32 KB |
+| `dns_lookup` | DNS Record Enumeration | `THIRD_PARTY_RECON` | LOW | 10s | 32 KB | 32 KB |
+| `whois_lookup` | WHOIS / RDAP Registration | `THIRD_PARTY_RECON` | LOW | 15s | 32 KB | 32 KB |
 | **Active Direct Target Probes** | | | | | | |
-| `tls_info` | TLS/SSL Handshake & Cipher Suite | Active Probe | LOW | 10s | 64 KB | 64 KB |
-| `http_headers` | HTTP Headers & Cookies | Active Probe | LOW | 10s | 64 KB | 64 KB |
-| `robots_txt` | Robots.txt Disallow Inspection | Active Probe | LOW | 10s | 128 KB | 128 KB |
-| `sitemap_xml` | Sitemap Structure Parser | Active Probe | LOW | 15s | 512 KB | 512 KB |
-| `extract_links` | Internal & External Link Harvester | Active Probe | LOW | 15s | 1 MB | 2 MB |
-| `extract_js_urls` | JavaScript Asset Harvester | Active Probe | LOW | 15s | 1 MB | 2 MB |
-| `tech_detect` | Technology Fingerprint Heuristics | Active Probe | LOW | 10s | 512 KB | 1 MB |
-| `sensitive_files_check` | Exposed Sensitive Files & Endpoints | Active Probe | MEDIUM | 15s | 64 KB | 64 KB |
-| `js_secrets_scanner` | JS Bundle Secrets Scanner (Agg: 5MB) | Active Probe | LOW | 20s | 1 MB / file | 2 MB / file |
-| `cors_misconfig_check` | CORS Misconfiguration & Origin Probe | Active Probe | LOW | 10s | 32 KB | 32 KB |
-| `subdomain_takeover_check` | Subdomain Takeover & Dangling DNS | Active Probe | LOW | 15s | 64 KB | 64 KB |
+| `tls_info` | TLS/SSL Handshake & Cipher Suite | `DIRECT_TARGET_PROBE` | LOW | 10s | 64 KB | 64 KB |
+| `http_headers` | HTTP Headers & Cookies | `DIRECT_TARGET_PROBE` | LOW | 10s | 64 KB | 64 KB |
+| `robots_txt` | Robots.txt Disallow Inspection | `DIRECT_TARGET_PROBE` | LOW | 10s | 128 KB | 128 KB |
+| `sitemap_xml` | Sitemap Structure Parser | `DIRECT_TARGET_PROBE` | LOW | 15s | 512 KB | 512 KB |
+| `extract_links` | Internal & External Link Harvester | `DIRECT_TARGET_PROBE` | LOW | 15s | 1 MB | 2 MB |
+| `extract_js_urls` | JavaScript Asset Harvester | `DIRECT_TARGET_PROBE` | LOW | 15s | 1 MB | 2 MB |
+| `tech_detect` | Technology Fingerprint Heuristics | `DIRECT_TARGET_PROBE` | LOW | 10s | 512 KB | 1 MB |
+| `sensitive_files_check` | Exposed Sensitive Files & Endpoints | `DIRECT_TARGET_PROBE` | MEDIUM | 15s | 64 KB | 64 KB |
+| `js_secrets_scanner` | JS Bundle Secrets Scanner (Agg: 5MB) | `DIRECT_TARGET_PROBE` | LOW | 20s | 1 MB / file | 2 MB / file |
+| `cors_misconfig_check` | CORS Misconfiguration & Origin Probe | `DIRECT_TARGET_PROBE` | LOW | 10s | 32 KB | 32 KB |
+| `subdomain_takeover_check` | Subdomain Takeover & Dangling DNS | `DIRECT_TARGET_PROBE` | LOW | 15s | 64 KB | 64 KB |
 | **Offline Analytical** | | | | | | |
-| `security_headers_score` | Security Headers Evaluation Score | Offline Analytical | LOW | 1s | N/A (Offline) | N/A (Offline) |
-| `cve_matcher` | Technology CVE & Flaw Matcher | Offline Analytical | LOW | 5s | N/A (Offline) | N/A (Offline) |
+| `security_headers_score` | Security Headers Evaluation Score | `OFFLINE_ANALYSIS` | LOW | 1s | N/A (Offline) | N/A (Offline) |
+| `cve_matcher` | Technology CVE & Flaw Matcher | `OFFLINE_ANALYSIS` | LOW | 5s | N/A (Offline) | N/A (Offline) |
 
 ---
 
@@ -132,8 +132,9 @@ All tool executions adhere to four distinct payload thresholds to prevent memory
 ---
 
 ### 4. `http_headers`
-- **Tier**: Active Direct Target Probe | **Risk**: LOW | **Timeout**: 10s | **Max Size**: 64 KB
+- **Tier**: Active Direct Target Probe (`DIRECT_TARGET_PROBE`) | **Risk**: LOW | **Timeout**: 10s | **Max Size**: 64 KB
 - **Description**: Fetches HTTP response headers from the target server using a GET request (HEAD-like semantics without consuming long bodies) and parses headers into security-relevant categories.
+- **Scope Boundary**: Retrieves raw headers, cookie attributes, and server banners without calculating scores. Quantitative scoring (0–100 score and grade) is strictly isolated to the offline tool `security_headers_score` (#10).
 - **Parser Notes**: Extracts and canonicalizes headers (lowercased), analyzes `Set-Cookie` directives (`Secure`, `HttpOnly`, `SameSite`), checks for legacy headers (`X-Powered-By`, `Server`).
 - **Input Schema**:
   ```json
@@ -411,8 +412,10 @@ All tool executions adhere to four distinct payload thresholds to prevent memory
 ---
 
 ### 15. `subdomain_takeover_check`
-- **Tier**: Active Direct Target Probe | **Risk**: LOW | **Timeout**: 15s | **Max Size**: 64 KB
+- **Tier**: Active Direct Target Probe (`DIRECT_TARGET_PROBE`) | **Risk**: LOW | **Timeout**: 15s | **Max Size**: 64 KB
 - **Description**: Inspects CNAME DNS records of the target domain and discovered subdomains for dangling pointers to unclaimed third-party cloud services, directly probing destination HTTP endpoints for canonical fingerprint strings (AWS S3, GitHub Pages, Vercel, Heroku, Azure Websites).
+- **Subdomain Origin & Discovery**: The input array `subdomains` accepts specific FQDNs belonging to `*.<target_host>`. If left empty (`[]`), the tool automatically pulls subdomains discovered in preceding session steps (e.g., SAN entries from `tls_info` or discovered links from `extract_links`).
+- **PolicyEngine Scope Rules**: As specified in `07-POLICY-ENGINE.md`, checking subdomains of the target host (`*.<target_host>`) is permitted. Destination CNAME HTTP probes are restricted strictly to checking canonical fingerprint signatures of recognized cloud providers, provided all resolved IPs (including CNAME destinations) pass standard PolicyEngine IP filtering (blocking loopback/private/metadata destinations).
 - **Vulnerability Mechanism**: If a domain has a DNS CNAME pointing to an external cloud asset (e.g. `sub.example.com CNAME mybucket.s3.amazonaws.com`), but the cloud asset was deleted, an attacker can register that cloud asset name and take full control over `sub.example.com`.
 - **Parser Notes**: Queries CNAME records and probes destination HTTP endpoints for canonical fingerprint strings:
   - AWS S3: `"NoSuchBucket"`

@@ -27,8 +27,8 @@ flowchart LR
 ```
 
 The system operates in two distinct modes:
-1. **Comment Mode (Automated Advisory)**: Evaluates a completed tool execution step, highlights potential risks, and suggests a logical next tool.
-2. **Free Chat Mode (Interactive Sounding Board)**: Answers operator questions grounded in accumulated session observations.
+1. **Comment Mode (Automated Advisory)**: Evaluates a completed tool execution step, highlights potential risks, and suggests a logical next tool (dispatched asynchronously, delivered via SSE `llm_comment_ready`).
+2. **Free Chat Mode (Interactive Sounding Board)**: Answers operator questions grounded in accumulated session observations. Enqueued asynchronously via `POST /api/sessions/{id}/llm/chat` (`202 Accepted`) and delivered to the UI via SSE event `llm_chat_reply` to eliminate HTTP servlet thread blocking during local model generation.
 
 ---
 
@@ -164,6 +164,12 @@ Keep answers technically rigorous, focused on self-defense, and actionable.
 User Message:
 {{userMessage}}
 ```
+
+### 3. Chat Dispatch & Asynchronous SSE Delivery
+To eliminate HTTP servlet thread starvation and client-side timeouts during local model inference (which can take up to 60s):
+1. Client submits `POST /api/sessions/{id}/llm/chat` with `{ "message": "..." }`.
+2. Backend validates active session state and responds immediately with `202 Accepted` (`{ "status": "PENDING", "message": "Chat query enqueued" }`).
+3. Background task formats prompt context, executes inference via Ollama, and delivers the answer via the session's active SSE connection using event `llm_chat_reply` (`{ "reply": "..." }`).
 
 ---
 

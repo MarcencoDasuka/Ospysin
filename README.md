@@ -31,6 +31,8 @@ Ospysin is an open-source, local-first platform engineered for comprehensive OSI
 ospysin/
 ├── README.md               # Project overview, philosophy, and documentation index
 ├── LICENSE                 # Open source license (MIT)
+├── SECURITY.md             # Security policy and vulnerability disclosure guidelines
+├── CONTRIBUTING.md         # Contribution guidelines and engineering standards
 ├── .gitignore              # Multi-stack ignore rules (Java, Node, IDE, DB, logs)
 ├── .editorconfig           # Code formatting rules (UTF-8, LF, standard indentations)
 ├── docs/                   # Complete architectural and operational specifications
@@ -49,18 +51,19 @@ ospysin/
 │   ├── 12-DEPLOYMENT.md    # Local setup, Ollama provisioning, Docker Compose
 │   ├── 13-TESTING-STRATEGY.md # Unit, integration, contract, and E2E testing
 │   ├── 14-ROADMAP.md       # Phased roadmap and step-by-step master plan
+│   ├── 15-GLOSSARY.md      # Authoritative domain terminology and taxonomy
 │   └── adr/                # Architecture Decision Records
 │       ├── 0001-modular-monolith.md
 │       ├── 0002-postgres-queue.md
 │       ├── 0003-llm-as-advisor.md
 │       ├── 0004-user-triggered-tools.md
 │       └── 0005-local-first.md
-├── backend/                # Spring Boot 3.3.x backend (Java 21)
+├── backend/                # Spring Boot 3.3.x backend (Java 21) & embedded execution worker
 ├── frontend/               # Vue 3 + TypeScript + Vite + PrimeVue UI
-├── worker/                 # Tool execution engine (internal / background worker)
 ├── infra/                  # Infrastructure configurations (Docker Compose, .env)
 │   ├── docker-compose.yml
-│   └── .env.example
+│   ├── .env.example
+│   └── init-db/
 └── scripts/                # Local automation, seed, and maintenance scripts
 ```
 
@@ -72,30 +75,30 @@ To understand the system from rationale to implementation, read the documentatio
 
 | Order | Document | Focus | Status |
 | :---: | :--- | :--- | :--- |
-| **1** | [00-VISION.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/00-VISION.md) | Objectives, personas, non-goals & v1 success criteria | Complete |
-| **2** | [15-GLOSSARY.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/15-GLOSSARY.md) | Domain language: Observation vs Finding vs Evidence | Complete |
-| **3** | [01-SCOPE.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/01-SCOPE.md) | Formal boundaries, included capabilities, deferred items | Complete |
-| **4** | [03-DOMAIN-MODEL.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/03-DOMAIN-MODEL.md) | Core business entities, lifecycle states, Mermaid ER diagram | Complete |
-| **5** | [05-TOOL-CATALOG.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/05-TOOL-CATALOG.md) | Technical specs and schemas for all 15 audit & vulnerability discovery tools | Complete |
-| **6** | [02-ARCHITECTURE.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/02-ARCHITECTURE.md) | Modular monolith architecture, stack, Mermaid flows | Complete |
-| **7** | [07-POLICY-ENGINE.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/07-POLICY-ENGINE.md) | Network safety, SSRF/DNS rebinding defense, per-host limits | Complete |
-| **8** | [06-LLM-INTEGRATION.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/06-LLM-INTEGRATION.md) | Dolphin3-Cyber integration, rolling summary, 2048 token budget | Complete |
-| **9** | [09-LEGAL-AND-ETHICS.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/09-LEGAL-AND-ETHICS.md) | Statutory framework, SHA-256 scope acknowledgment, ethics | Complete |
-| **10** | [08-THREAT-MODEL.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/08-THREAT-MODEL.md) | STRIDE threat matrix and architectural counter-measures | Complete |
-| **11** | [04-API-CONTRACTS.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/04-API-CONTRACTS.md) | REST endpoints, RFC 9457 error format, SSE streaming | Complete |
-| **12** | [11-DATA-MODEL.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/11-DATA-MODEL.md) | PostgreSQL 16 relational schema, Flyway migrations, JSONB | Complete |
-| **13** | [10-UI-UX-SPEC.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/10-UI-UX-SPEC.md) | 4-panel workspace design, states, ASCII wireframes | Complete |
-| **14** | [12-DEPLOYMENT.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/12-DEPLOYMENT.md) | Docker Compose, Ollama host setup, LAN mode, backups | Complete |
-| **15** | [13-TESTING-STRATEGY.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/13-TESTING-STRATEGY.md) | Test pyramid, Testcontainers, Playwright, CI pipelines | Complete |
-| **16** | [14-ROADMAP.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/14-ROADMAP.md) | Master development roadmap & phased execution gates | Complete |
-| **17** | [SECURITY.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/SECURITY.md) / [CONTRIBUTING.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/CONTRIBUTING.md) | Project vulnerability reporting & contribution rules | Complete |
+| **1** | [00-VISION.md](./docs/00-VISION.md) | Objectives, personas, non-goals & v1 success criteria | Complete |
+| **2** | [15-GLOSSARY.md](./docs/15-GLOSSARY.md) | Domain language: Observation vs Finding vs Evidence | Complete |
+| **3** | [01-SCOPE.md](./docs/01-SCOPE.md) | Formal boundaries, included capabilities, deferred items | Complete |
+| **4** | [03-DOMAIN-MODEL.md](./docs/03-DOMAIN-MODEL.md) | Core business entities, lifecycle states, Mermaid ER diagram | Complete |
+| **5** | [05-TOOL-CATALOG.md](./docs/05-TOOL-CATALOG.md) | Technical specs and schemas for all 15 audit & vulnerability discovery tools | Complete |
+| **6** | [02-ARCHITECTURE.md](./docs/02-ARCHITECTURE.md) | Modular monolith architecture, stack, Mermaid flows | Complete |
+| **7** | [07-POLICY-ENGINE.md](./docs/07-POLICY-ENGINE.md) | Network safety, SSRF/DNS rebinding defense, per-host limits | Complete |
+| **8** | [06-LLM-INTEGRATION.md](./docs/06-LLM-INTEGRATION.md) | Dolphin3-Cyber integration, rolling summary, 2048 token budget | Complete |
+| **9** | [09-LEGAL-AND-ETHICS.md](./docs/09-LEGAL-AND-ETHICS.md) | Statutory framework, SHA-256 scope acknowledgment, ethics | Complete |
+| **10** | [08-THREAT-MODEL.md](./docs/08-THREAT-MODEL.md) | STRIDE threat matrix and architectural counter-measures | Complete |
+| **11** | [04-API-CONTRACTS.md](./docs/04-API-CONTRACTS.md) | REST endpoints, RFC 9457 error format, SSE streaming | Complete |
+| **12** | [11-DATA-MODEL.md](./docs/11-DATA-MODEL.md) | PostgreSQL 16 relational schema, Flyway migrations, JSONB | Complete |
+| **13** | [10-UI-UX-SPEC.md](./docs/10-UI-UX-SPEC.md) | 4-panel workspace design, states, ASCII wireframes | Complete |
+| **14** | [12-DEPLOYMENT.md](./docs/12-DEPLOYMENT.md) | Docker Compose, Ollama host setup, LAN mode, backups | Complete |
+| **15** | [13-TESTING-STRATEGY.md](./docs/13-TESTING-STRATEGY.md) | Test pyramid, Testcontainers, Playwright, CI pipelines | Complete |
+| **16** | [14-ROADMAP.md](./docs/14-ROADMAP.md) | Master development roadmap & phased execution gates | Complete |
+| **17** | [SECURITY.md](./SECURITY.md) / [CONTRIBUTING.md](./CONTRIBUTING.md) | Project vulnerability reporting & contribution rules | Complete |
 
 ### Architecture Decision Records (ADRs)
-- [ADR 0001: Modular Monolith](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/adr/0001-modular-monolith.md)
-- [ADR 0002: PostgreSQL-backed Job Queue](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/adr/0002-postgres-queue.md)
-- [ADR 0003: LLM as Advisory Sounding Board](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/adr/0003-llm-as-advisor.md)
-- [ADR 0004: User-Triggered Tool Invocations](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/adr/0004-user-triggered-tools.md)
-- [ADR 0005: Local-First Offline Operation](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/adr/0005-local-first.md)
+- [ADR 0001: Modular Monolith](./docs/adr/0001-modular-monolith.md)
+- [ADR 0002: PostgreSQL-backed Job Queue](./docs/adr/0002-postgres-queue.md)
+- [ADR 0003: LLM as Advisory Sounding Board](./docs/adr/0003-llm-as-advisor.md)
+- [ADR 0004: User-Triggered Tool Invocations](./docs/adr/0004-user-triggered-tools.md)
+- [ADR 0005: Local-First Offline Operation](./docs/adr/0005-local-first.md)
 
 ---
 
@@ -111,4 +114,4 @@ To understand the system from rationale to implementation, read the documentatio
 
 ## Legal & Ethical Usage
 
-Ospysin is intended exclusively for authorized security reviews, internal systems auditing, vulnerability management on self-hosted infrastructure, and cybersecurity research where explicit permission has been obtained. Unapproved reconnaissance or exploitation against third-party systems is unlawful under national and international computer fraud regulations. Consult [09-LEGAL-AND-ETHICS.md](file:///c:/Users/наш%20компухтер/Desktop/Ospysin/docs/09-LEGAL-AND-ETHICS.md) before deployment.
+Ospysin is intended exclusively for authorized security reviews, internal systems auditing, vulnerability management on self-hosted infrastructure, and cybersecurity research where explicit permission has been obtained. Unapproved reconnaissance or exploitation against third-party systems is unlawful under national and international computer fraud regulations. Consult [09-LEGAL-AND-ETHICS.md](./docs/09-LEGAL-AND-ETHICS.md) before deployment.
