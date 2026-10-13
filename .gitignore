@@ -53,3 +53,6 @@ logs/
 .cache/
 tmp/
 scratch/
+
+# Audit Snapshots (temporary review bundles)
+docs/audits/snapshots/

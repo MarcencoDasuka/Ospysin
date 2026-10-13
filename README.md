@@ -52,12 +52,14 @@ ospysin/
 │   ├── 13-TESTING-STRATEGY.md # Unit, integration, contract, and E2E testing
 │   ├── 14-ROADMAP.md       # Phased roadmap and step-by-step master plan
 │   ├── 15-GLOSSARY.md      # Authoritative domain terminology and taxonomy
-│   └── adr/                # Architecture Decision Records
-│       ├── 0001-modular-monolith.md
-│       ├── 0002-postgres-queue.md
-│       ├── 0003-llm-as-advisor.md
-│       ├── 0004-user-triggered-tools.md
-│       └── 0005-local-first.md
+│   ├── adr/                # Architecture Decision Records
+│   │   ├── 0001-modular-monolith.md
+│   │   ├── 0002-postgres-queue.md
+│   │   ├── 0003-llm-as-advisor.md
+│   │   ├── 0004-user-triggered-tools.md
+│   │   └── 0005-local-first.md
+│   ├── audits/             # Phase audit reports and review findings
+│   └── remediation/        # Defect remediation plans and tracking
 ├── backend/                # Spring Boot 3.3.x backend (Java 21) & embedded execution worker
 ├── frontend/               # Vue 3 + TypeScript + Vite + PrimeVue UI
 ├── infra/                  # Infrastructure configurations (Docker Compose, .env)
@@ -65,6 +67,7 @@ ospysin/
 │   ├── .env.example
 │   └── init-db/
 └── scripts/                # Local automation, seed, and maintenance scripts
+    └── bundle-phase.ps1    # Phase snapshot bundler for offline auditing
 ```
 
 ---

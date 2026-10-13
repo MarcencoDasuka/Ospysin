@@ -42,12 +42,14 @@ ospysin/
 │   ├── 13-TESTING-STRATEGY.md
 │   ├── 14-ROADMAP.md
 │   ├── 15-GLOSSARY.md
-│   └── adr/
-│       ├── 0001-modular-monolith.md
-│       ├── 0002-postgres-queue.md
-│       ├── 0003-llm-as-advisor.md
-│       ├── 0004-user-triggered-tools.md
-│       └── 0005-local-first.md
+│   ├── adr/
+│   │   ├── 0001-modular-monolith.md
+│   │   ├── 0002-postgres-queue.md
+│   │   ├── 0003-llm-as-advisor.md
+│   │   ├── 0004-user-triggered-tools.md
+│   │   └── 0005-local-first.md
+│   ├── audits/
+│   └── remediation/
 ├── backend/
 ├── frontend/
 ├── infra/
@@ -55,6 +57,7 @@ ospysin/
 │   ├── .env.example
 │   └── init-db/
 └── scripts/
+    └── bundle-phase.ps1
 ```
 
 ---
