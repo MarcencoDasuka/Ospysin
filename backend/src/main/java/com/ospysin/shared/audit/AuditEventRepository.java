@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 
     List<AuditEvent> findBySessionIdOrderByTimestampAsc(UUID sessionId);
+
+    List<AuditEvent> findBySessionIsNull();
 }
