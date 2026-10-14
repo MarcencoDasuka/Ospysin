@@ -1,0 +1,15 @@
+package com.ospysin.shared.audit;
+
+public enum AuditEventType {
+    SESSION_STARTED,
+    SESSION_COMPLETED,
+    SESSION_ABORTED,
+    SCOPE_ACKNOWLEDGED,
+    POLICY_EVALUATED,
+    TOOL_TRIGGERED,
+    TOOL_FINISHED,
+    LLM_QUERY,
+    LLM_COMMENT,
+    FINDING_CREATED,
+    FINDING_REJECTED
+}
