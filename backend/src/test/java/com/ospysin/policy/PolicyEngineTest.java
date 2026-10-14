@@ -371,4 +371,36 @@ class PolicyEngineTest {
         assertThat(decision.allowed()).isFalse();
         assertThat(decision.reason()).containsIgnoringCase("Unable to resolve");
     }
+
+    @Test
+    @DisplayName("evaluate() handles bracketed IPv6 URL with port against unbracketed IPv6 ScopeAsset")
+    void evaluateBracketedIpv6UrlWithPortAgainstUnbracketedScopeAsset() {
+        ScopeAsset ipv6ScopeAsset = ScopeAsset.builder()
+                .assetType(AssetType.IP)
+                .value("2606:2800:220:1:248:1893:25c8:1946")
+                .isWildcard(false)
+                .build();
+
+        PolicyDecision decision = policyEngine.evaluate(
+                "http://[2606:2800:220:1:248:1893:25c8:1946]:8080/api",
+                SessionMode.PUBLIC,
+                ipv6ScopeAsset
+        );
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.targetHost()).isEqualTo("2606:2800:220:1:248:1893:25c8:1946");
+        assertThat(decision.resolvedIp()).isNotNull();
+        assertThat(decision.resolvedIp().getHostAddress()).isEqualTo("2606:2800:220:1:248:1893:25c8:1946");
+    }
+
+    @Test
+    @DisplayName("evaluate() rejects target hosts exceeding RFC 1035 maximum length of 253 characters")
+    void evaluateRejectsOversizedHostLength() {
+        String oversizedHost = "a".repeat(60) + "." + "b".repeat(60) + "." + "c".repeat(60) + "." + "d".repeat(60) + "." + "e".repeat(20) + ".com";
+        assertThat(oversizedHost.length()).isGreaterThan(253);
+
+        PolicyDecision decision = policyEngine.evaluate("https://" + oversizedHost + "/api", SessionMode.PUBLIC, null);
+        assertThat(decision.allowed()).isFalse();
+        assertThat(decision.reason()).containsIgnoringCase("exceeds maximum DNS length of 253 characters");
+    }
 }

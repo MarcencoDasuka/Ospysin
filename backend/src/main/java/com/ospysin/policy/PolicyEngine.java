@@ -123,6 +123,10 @@ public class PolicyEngine {
             }
         }
 
+        if (host != null && host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
+
         if (port != -1 && !ALLOWED_PORTS.contains(port)) {
             return new PolicyDecision(false, "Prohibited port: " + port + ". Allowed web ports are 80, 443, 8000, 8080, 8443, 3000, 5000", null, null, mode, timestamp);
         }
@@ -134,6 +138,10 @@ public class PolicyEngine {
         // Strip trailing FQDN root dots (e.g. "example.com." -> "example.com", "127.0.0.1." -> "127.0.0.1")
         while (host.endsWith(".") && host.length() > 1) {
             host = host.substring(0, host.length() - 1);
+        }
+
+        if (host.length() > 253) {
+            return new PolicyDecision(false, "Target host exceeds maximum DNS length of 253 characters", host, null, mode, timestamp);
         }
 
         // 5. Scope Containment Check
@@ -279,6 +287,9 @@ public class PolicyEngine {
                 URI uri = URI.create(trimmed);
                 String host = uri.getHost();
                 if (host != null) {
+                    if (host.startsWith("[") && host.endsWith("]")) {
+                        host = host.substring(1, host.length() - 1);
+                    }
                     return host;
                 }
             } catch (Exception ignored) {
@@ -288,9 +299,21 @@ public class PolicyEngine {
         if (slash > 0) {
             trimmed = trimmed.substring(0, slash);
         }
-        int colon = trimmed.indexOf(':');
-        if (colon > 0 && !trimmed.contains("]")) {
-            trimmed = trimmed.substring(0, colon);
+        int lastBracket = trimmed.lastIndexOf(']');
+        if (lastBracket >= 0) {
+            int colonAfterBracket = trimmed.indexOf(':', lastBracket);
+            if (colonAfterBracket > 0) {
+                trimmed = trimmed.substring(0, colonAfterBracket);
+            }
+        } else {
+            int firstColon = trimmed.indexOf(':');
+            int lastColon = trimmed.lastIndexOf(':');
+            if (firstColon > 0 && firstColon == lastColon) {
+                trimmed = trimmed.substring(0, firstColon);
+            }
+        }
+        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1);
         }
         return trimmed;
     }

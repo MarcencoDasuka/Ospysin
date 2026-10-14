@@ -12,14 +12,15 @@
 - [x] **P6-03 [MEDIUM] [VERIFIED BUG]**: Fall back to `uri.getRawAuthority()` when `uri.getHost()` is null for dotted-hex/short numeric IP literals, validate extracted ports against `ALLOWED_PORTS`, and strip trailing root FQDN dots (`.`).
 - [x] **P6-04 [LOW] [VERIFIED INCONSISTENCY]**: Populate `List.of(new InvalidParam("targetUrl", decision.reason()))` in `PolicyEngine.enforce()` for RFC 9457 compliance.
 - [x] **P6-05 [LOW] [VERIFIED BUG]**: Replace live external DNS domain query with `"999.999.999.999"` in `SystemDnsResolverTest` to eliminate 11-second test timeout.
+- [x] **P6-06 [MEDIUM] [VERIFIED BUG]**: Fix unbracketed IPv6 host truncation in `PolicyEngine.extractHost()`, strip brackets in `evaluateUri()`, and test bracketed IPv6 URL with port against unbracketed IPv6 `ScopeAsset`.
 
 ---
 
 ## Verification Summary
 
-- **Backend Tests Executed:** 183/183 passed (`mvnw.cmd test` / `mvnw.cmd clean verify`).
+- **Backend Tests Executed:** 184/184 passed (`mvnw.cmd test` / `mvnw.cmd clean verify`).
   - `IpRangeValidatorTest`: 65/65 passed (RFC 6890, cloud metadata, NAT64, 6to4, Discard-Only, IPv4-mapped & IPv4-compatible unwrapping).
-  - `PolicyEngineTest`: 37/37 passed (scheme/port allowlist, userinfo, multi-IP DNS, scope containment, CNAME takeover allowlist, dotted-hex/short IP authority fallback, trailing dots, redirect hop cap, DNS rebinding harness, invalidParams).
+  - `PolicyEngineTest`: 34/34 passed (scheme/port allowlist, userinfo, multi-IP DNS, scope containment, CNAME takeover allowlist, dotted-hex/short IP authority fallback, trailing dots, redirect hop cap, DNS rebinding harness, invalidParams, bracketed IPv6 normalization).
   - `ObfuscatedIpParserTest`: 24/24 passed (octal, hex, dword, dotted, bracketed IPv6, trailing dot stripping).
   - `PayloadLimitGuardTest`: 7/7 passed (Tier 1 wire cap, Tier 2 decompressed cap, Tier 2 expansion ratio threshold, live gzip bomb, Tier 3 aggregate budget).
   - `CidrBlockTest`: 19/19 passed (bitwise CIDR matching, invalid CIDRs, boundary and cross-family checks).

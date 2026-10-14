@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-An architectural, security, and algorithmic audit of the Phase 6 implementation identified 5 findings (1 High, 2 Medium, 2 Low) spanning scope containment bypasses during subdomain takeover checks, special-purpose IPv6 transition range gaps and IPv4-compatible unwrapping, URI parser host extraction edge cases with dotted-hex and short numeric IP literals, missing RFC 9457 `invalidParams` details in policy exception enforcement, and an 11-second test suite delay caused by live external DNS resolution. All 5 findings have been verified, remediated, and covered by automated unit tests.
+An architectural, security, and algorithmic audit of the Phase 6 implementation identified 6 findings (1 High, 3 Medium, 2 Low) spanning scope containment bypasses during subdomain takeover checks, special-purpose IPv6 transition range gaps and IPv4-compatible unwrapping, URI parser host extraction edge cases with dotted-hex and short numeric IP literals, missing RFC 9457 `invalidParams` details in policy exception enforcement, an 11-second test suite delay caused by live external DNS resolution, and IPv6 host/port normalization edge cases. All 6 findings have been verified, remediated, and covered by automated unit tests.
 
 ---
 
@@ -59,3 +59,14 @@ An architectural, security, and algorithmic audit of the Phase 6 implementation 
 - **Remediation:**
   - Replaced `"invalid.nonexistent.domain.xyz"` with `"999.999.999.999"`, which `InetAddress.getAllByName()` recognizes immediately as an invalid address and rejects with `UnknownHostException` in `< 1ms` with zero network I/O.
   - Reduced total backend test execution time from ~56 seconds to ~30 seconds.
+
+---
+
+### P6-06 [MEDIUM] [VERIFIED BUG]: Truncation of Unbracketed IPv6 Target Hosts and Incomplete Bracket Stripping in `PolicyEngine.extractHost()` and `evaluateUri()`
+- **Issue:** In `PolicyEngine.extractHost()`, the condition `if (colon > 0 && !trimmed.contains("]")) { trimmed = trimmed.substring(0, colon); }` truncated unbracketed IPv6 addresses (e.g. `"2606:2800:220:1:248:1893:25c8:1946"`) at the first colon to `"2606"`. Furthermore, `URI.getHost()` returned bracketed IPv6 strings without stripping surrounding brackets, causing scope mismatches when evaluated against unbracketed IPv6 ScopeAssets.
+- **Impact:** IPv6 target evaluation failed scope matching against IPv6 ScopeAssets.
+- **Remediation:**
+  - In `PolicyEngine.extractHost()`, only strip `:port` when there is a single colon or when following a closing bracket (`]:port`), and strip surrounding `[` and `]` brackets from IPv6 literals.
+  - In `PolicyEngine.evaluateUri()`, strip surrounding brackets from extracted authority host so `decision.targetHost()` and `isWithinScope()` consistently evaluate canonical unbracketed strings.
+  - Added unit test in `PolicyEngineTest` verifying evaluation of `http://[2606:2800:220:1:248:1893:25c8:1946]:8080/api` against an unbracketed IPv6 `ScopeAsset`.
+
