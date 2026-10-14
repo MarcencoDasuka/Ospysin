@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginView from '@/views/LoginView.vue'
 import HomeView from '@/views/HomeView.vue'
+import SessionWorkspaceView from '@/views/SessionWorkspaceView.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -14,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     component: HomeView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/sessions/:id',
+    name: 'session-workspace',
+    component: SessionWorkspaceView,
     meta: { requiresAuth: true }
   },
   {
