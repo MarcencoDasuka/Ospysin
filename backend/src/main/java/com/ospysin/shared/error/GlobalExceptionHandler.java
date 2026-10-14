@@ -9,7 +9,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -148,11 +151,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        String detail = "You do not have permission to perform this action.";
+        if (ex instanceof MissingCsrfTokenException || ex instanceof InvalidCsrfTokenException) {
+            detail = "CSRF token is missing or invalid.";
+        }
+
         ProblemDetail problem = buildProblemDetail(
                 HttpStatus.FORBIDDEN,
                 "https://ospysin.dev/errors/access-denied",
                 "Access Denied",
-                "You do not have permission to perform this action.",
+                detail,
                 request.getRequestURI()
         );
 
@@ -164,11 +172,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        String detail = ex instanceof BadCredentialsException
+                ? "Invalid username or password."
+                : "Authentication is required to access this resource.";
+
         ProblemDetail problem = buildProblemDetail(
                 HttpStatus.UNAUTHORIZED,
                 "https://ospysin.dev/errors/unauthorized",
                 "Unauthorized",
-                "Authentication is required to access this resource.",
+                detail,
                 request.getRequestURI()
         );
 
