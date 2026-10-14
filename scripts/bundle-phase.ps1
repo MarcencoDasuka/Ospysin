@@ -265,7 +265,7 @@ try {
             $failureReports = @()
             foreach ($report in $surefireReports) {
                 $rContent = Get-Content -Path $report.FullName -Raw -ErrorAction SilentlyContinue
-                if ($rContent -match "FAILURE|ERROR") {
+                if ($rContent -cmatch "<<< FAILURE!|<<< ERROR!" -or $rContent -match "Failures:\s*[1-9]|Errors:\s*[1-9]") {
                     $failureReports += [PSCustomObject]@{
                         Name = $report.Name
                         Content = $rContent

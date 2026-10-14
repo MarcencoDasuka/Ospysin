@@ -73,9 +73,10 @@ This document establishes the authoritative domain vocabulary for Ospysin. Consi
 
 ## Comparison Matrix: Telemetry vs Risk
 
-| Attribute | `Observation` (Авто-наблюдение) | `Finding` (Находка / Уязвимость) | `Evidence` (Улика) |
+| Attribute | `Observation` (Automated Telemetry) | `Finding` (Vulnerability / Risk Assessment) | `Evidence` (Forensic Proof) |
 | :--- | :--- | :--- | :--- |
-| **Origin** | Автоматический парсер инструмента | Человек (Аудитор) | Срез из `ToolResult` |
-| **Изменяемость** | Генерируется на лету | Редактируется оператором | Неизменяема |
-| **Суть** | Фактический факт из ответа | Оценка риска и последствий | Конкретная строка/байт |
-| **Пример** | `X-Frame-Options` отсутствует | Риск кликджекинга в личном кабинете | `HTTP/1.1 200 OK ... (без заголовка)` |
+| **Origin** | Automated tool parser | Human Auditor / Operator | Slice of `ToolResult` |
+| **Mutability** | Generated on-the-fly / Immutable once stored | Edited / curated by operator | Immutable WORM record |
+| **Nature** | Raw factual observation from response | Evaluated risk, severity, and impact | Concrete excerpt / byte sequence |
+| **Example** | Missing `X-Frame-Options` header | Clickjacking risk on account dashboard | `HTTP/1.1 200 OK ... (header omitted)` |
+
