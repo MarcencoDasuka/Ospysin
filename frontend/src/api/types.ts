@@ -31,3 +31,42 @@ export interface HealthResponse {
     ollama: string
   }
 }
+
+export type SessionMode = 'LOCAL' | 'PUBLIC'
+export type SessionState = 'ACTIVE' | 'COMPLETED' | 'ABORTED'
+
+export interface CreateSessionRequest {
+  targetUrl: string
+  mode: SessionMode
+  scopeAcknowledged: boolean
+  scopeAckVersion: string
+}
+
+export interface AuditSession {
+  id: string
+  targetUrl: string
+  mode: SessionMode
+  state: SessionState
+  scopeAcknowledged: boolean
+  scopeAckVersion: string
+  scopeAckHash: string
+  scopeAckTimestamp: string
+  stepCount: number
+  findingCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SessionPageResponse {
+  content: AuditSession[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export const CANONICAL_SCOPE_ACK_VERSION = '1.0.0'
+
+export const CANONICAL_SCOPE_ACK_STATEMENT =
+  'I certify under penalty of law that I own this asset or have received explicit, written authorization to conduct security inspection against the target URL. I understand that all actions are forensically recorded in the local immutable audit log.'
+
