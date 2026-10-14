@@ -295,27 +295,40 @@ try {
             $feDir = Join-Path $RepoRoot "frontend"
             Write-Host "[*] Executing frontend tests in $feDir..." -ForegroundColor Cyan
 
-            $pnpmExists = (Get-Command pnpm -ErrorAction SilentlyContinue)
-            if ($pnpmExists) {
+            $pnpmCmd = $null
+            if (Get-Command pnpm.cmd -ErrorAction SilentlyContinue) {
+                $pnpmCmd = "pnpm.cmd"
+            } elseif (Get-Command pnpm -ErrorAction SilentlyContinue) {
+                $pnpmCmd = "pnpm"
+            }
+
+            if ($pnpmCmd) {
                 Push-Location $feDir
                 try {
+                    $env:NO_COLOR = "1"
                     $pkgData = Get-Content $fePkg -Raw | ConvertFrom-Json
                     $hasTest = ($pkgData.scripts -and $pkgData.scripts.test)
                     $pnpmArgs = if ($hasTest) { @("test", "--run") } else { @("build") }
 
-                    $feOutput = & pnpm @pnpmArgs 2>&1 | Out-String
+                    $feOutput = & $pnpmCmd @pnpmArgs 2>&1 | Out-String
                     $feExit = $LASTEXITCODE
                 } catch {
                     $feOutput = $_.Exception.Message
                     $feExit = -1
                 } finally {
+                    $env:NO_COLOR = $null
                     Pop-Location
                 }
 
                 $Lines.Add("- **Exit Code**: $feExit")
                 $Lines.Add("")
                 $Lines.Add("${bt3}text")
-                $feRaw = $feOutput -split "`r?`n"
+                $cleanOutput = $feOutput -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+                $feRaw = $cleanOutput -split "`r?`n" | Where-Object {
+                    $_ -notmatch "FullyQualifiedErrorId" -and
+                    $_ -notmatch "CategoryInfo" -and
+                    $_ -notmatch "NativeCommandError"
+                }
                 $feMatched = $feRaw | Where-Object {
                     $_ -match "Tests|Passed|Failed|ERR|build|error"
                 }
