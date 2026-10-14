@@ -27,6 +27,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ospysin.execution.sse.SessionSseDomainEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +48,7 @@ public class AuditSessionTxService {
     private final FindingRepository findingRepository;
     private final AuditEventRepository auditEventRepository;
     private final PolicyEngine policyEngine;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Transactional
@@ -177,6 +180,12 @@ public class AuditSessionTxService {
                 .build();
         auditEventRepository.save(event);
 
+        eventPublisher.publishEvent(new SessionSseDomainEvent(
+                session.getId(),
+                "session_completed",
+                Map.of("sessionId", session.getId().toString())
+        ));
+
         long stepCount = toolExecutionRepository.countBySessionId(id);
         long findingCount = findingRepository.countBySessionIdAndStatusNot(id, FindingStatus.REJECTED);
 
@@ -234,6 +243,12 @@ public class AuditSessionTxService {
                 .timestamp(now)
                 .build();
         auditEventRepository.save(event);
+
+        eventPublisher.publishEvent(new SessionSseDomainEvent(
+                session.getId(),
+                "session_aborted",
+                Map.of("sessionId", session.getId().toString())
+        ));
 
         long stepCount = toolExecutionRepository.countBySessionId(id);
         long findingCount = findingRepository.countBySessionIdAndStatusNot(id, FindingStatus.REJECTED);
