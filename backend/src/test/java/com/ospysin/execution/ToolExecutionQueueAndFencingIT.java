@@ -114,7 +114,7 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         hostRateLimiter.reset();
-        toolExecutionWorker.setAutoDispatchEnabled(true);
+        toolExecutionWorker.setAutoDispatchEnabled(false);
 
         when(dnsResolver.resolveAll("example.com"))
                 .thenReturn(new InetAddress[]{InetAddress.getByName("93.184.216.34")});
@@ -180,7 +180,7 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     @AfterEach
     void tearDown() {
         hostRateLimiter.reset();
-        toolExecutionWorker.setAutoDispatchEnabled(true);
+        toolExecutionWorker.setAutoDispatchEnabled(false);
         if (realHttpHeadersTool != null) {
             toolCatalogRegistry.registerToolBean(realHttpHeadersTool);
         }
@@ -190,7 +190,9 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     @WithMockUser(username = "auditor", roles = {"AUDITOR"})
     @DisplayName("Asynchronous Acceptance & Lifecycle: enqueue returns 202 Accepted, worker executes, results & observations persisted")
     void asyncAcceptanceAndLifecycle() throws Exception {
-        Map<String, Object> params = Map.of("customPort", 8080, "followRedirects", true);
+        toolExecutionWorker.setAutoDispatchEnabled(true);
+        try {
+            Map<String, Object> params = Map.of("customPort", 8080, "followRedirects", true);
 
         MvcResult mvcResult = mockMvc.perform(post("/api/sessions/" + activeSession.getId() + "/tools/http_headers/run")
                         .with(csrf())
@@ -261,6 +263,9 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.score").value(90))
                 .andExpect(jsonPath("$.rawOutput").value(containsString("Server: nginx")))
                 .andExpect(jsonPath("$.observations", hasSize(2)));
+        } finally {
+            toolExecutionWorker.setAutoDispatchEnabled(false);
+        }
     }
 
     @Test
@@ -414,6 +419,7 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
                 .updatedAt(clock.instant())
                 .build());
 
+        hostRateLimiter.reset();
         ToolExecution execution = toolExecutionTxService.enqueueExecution(privateSession.getId(), "http_headers", Map.of());
         toolExecutionWorker.executeTask(execution.getId());
 
