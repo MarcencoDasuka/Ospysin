@@ -70,3 +70,84 @@ export const CANONICAL_SCOPE_ACK_VERSION = '1.0.0'
 export const CANONICAL_SCOPE_ACK_STATEMENT =
   'I certify under penalty of law that I own this asset or have received explicit, written authorization to conduct security inspection against the target URL. I understand that all actions are forensically recorded in the local immutable audit log.'
 
+export type ExecutionType = 'THIRD_PARTY_RECON' | 'DIRECT_TARGET_PROBE' | 'OFFLINE_ANALYSIS'
+export type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+export type SeverityHeuristic = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface ToolMetadata {
+  id: string
+  name: string
+  category: string
+  executionType: ExecutionType
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface ToolRunAcceptedResponse {
+  executionId: string
+  sessionId: string
+  toolId: string
+  status: ExecutionStatus
+  enqueuedAt: string
+}
+
+export interface StepSummaryResponse {
+  executionId: string
+  toolId: string
+  status: ExecutionStatus
+  durationMs: number | null
+  observationCount: number
+  startedAt: string | null
+  endedAt: string | null
+}
+
+export interface ObservationDto {
+  id: string
+  category: string
+  description: string
+  severityHeuristic: SeverityHeuristic
+  detectedAt: string
+}
+
+export interface StepDetailResponse {
+  executionId: string
+  toolId: string
+  status: ExecutionStatus
+  durationMs: number | null
+  failureReason: string | null
+  rawOutput: string | null
+  parsedData: Record<string, unknown>
+  score: number | null
+  observations: ObservationDto[]
+  startedAt: string | null
+  endedAt: string | null
+}
+
+export interface ParsedCookieView {
+  name: string
+  secure: boolean
+  httpOnly: boolean
+  sameSite: string | null
+  path: string | null
+  domain: string | null
+}
+
+export interface RedirectHopView {
+  hop?: number
+  fromUrl?: string
+  toUrl?: string
+  statusCode?: number
+}
+
+export type SseConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR'
+export type SseLogLevel = 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR'
+
+export interface WorkspaceSseEvent {
+  id: string
+  timestamp: string
+  eventName: string
+  level: SseLogLevel
+  message: string
+  payload: Record<string, unknown>
+}
+
