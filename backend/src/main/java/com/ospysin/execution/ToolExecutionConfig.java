@@ -31,4 +31,21 @@ public class ToolExecutionConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "llmAdvisoryExecutor")
+    public ThreadPoolTaskExecutor llmAdvisoryExecutor(
+            @Value("${ospysin.llm.pool.core-size:2}") int coreSize,
+            @Value("${ospysin.llm.pool.max-size:4}") int maxSize,
+            @Value("${ospysin.llm.pool.queue-capacity:50}") int queueCapacity
+    ) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(coreSize);
+        executor.setMaxPoolSize(maxSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("ospysin-llm-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }

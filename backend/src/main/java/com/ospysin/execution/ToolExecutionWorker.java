@@ -36,11 +36,13 @@ public class ToolExecutionWorker {
     private final PolicyEngine policyEngine;
     private final ScopeAssetRepository scopeAssetRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.ospysin.llm.service.LlmAdvisoryService llmAdvisoryService;
 
     @Qualifier("toolExecutionExecutor")
     private final ThreadPoolTaskExecutor toolExecutionExecutor;
 
     private final AtomicBoolean autoDispatchEnabled = new AtomicBoolean(true);
+    private final AtomicBoolean autoAdvisoryEnabled = new AtomicBoolean(true);
 
     public boolean isAutoDispatchEnabled() {
         return autoDispatchEnabled.get();
@@ -48,6 +50,14 @@ public class ToolExecutionWorker {
 
     public void setAutoDispatchEnabled(boolean enabled) {
         this.autoDispatchEnabled.set(enabled);
+    }
+
+    public boolean isAutoAdvisoryEnabled() {
+        return autoAdvisoryEnabled.get();
+    }
+
+    public void setAutoAdvisoryEnabled(boolean enabled) {
+        this.autoAdvisoryEnabled.set(enabled);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -157,7 +167,10 @@ public class ToolExecutionWorker {
         try {
             ToolExecutionOutcome outcome = tool.execute(context);
             // Phase 3 (Fenced Persistence Tx)
-            toolExecutionTxService.persistSuccess(claimed.executionId(), claimed.claimedEpoch(), outcome, claimed.startedAt(), decision);
+            boolean persisted = toolExecutionTxService.persistSuccess(claimed.executionId(), claimed.claimedEpoch(), outcome, claimed.startedAt(), decision);
+            if (persisted && isAutoAdvisoryEnabled()) {
+                llmAdvisoryService.submitStepCommentAsync(claimed.sessionId(), claimed.executionId());
+            }
         } catch (Exception ex) {
             log.error("Execution failure for tool '{}' (execId={}): {}", claimed.toolId(), claimed.executionId(), ex.getMessage(), ex);
             String failureReason = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
