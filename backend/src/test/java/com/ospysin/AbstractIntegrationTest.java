@@ -42,5 +42,6 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.flyway.url", postgres::getJdbcUrl);
         registry.add("spring.flyway.user", postgres::getUsername);
         registry.add("spring.flyway.password", postgres::getPassword);
+        registry.add("ospysin.execution.watchdog-interval-ms", () -> "3600000");
     }
 }
