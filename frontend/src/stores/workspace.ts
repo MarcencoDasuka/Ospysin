@@ -11,7 +11,10 @@ import type {
   SseLogLevel,
   ExecutionType,
   ToolRunAcceptedResponse,
-  ProblemDetail
+  ProblemDetail,
+  LlmCommentPayload,
+  LlmChatMessage,
+  LlmAsyncAcceptedResponse
 } from '@/api/types'
 
 export interface ToolTierGroup {
@@ -35,6 +38,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const sseEvents = shallowRef<WorkspaceSseEvent[]>([])
   const sseConnectionState = ref<SseConnectionState>('DISCONNECTED')
   const policyAlertMessage = ref<string | null>(null)
+
+  // LLM Advisory & Tactical Chat State
+  const latestAdvisory = ref<LlmCommentPayload | null>(null)
+  const chatMessages = ref<LlmChatMessage[]>([])
+  const requestingComment = ref(false)
+  const sendingChat = ref(false)
 
   const loadingTools = ref(false)
   const loadingSteps = ref(false)
@@ -310,6 +319,79 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  async function requestStepComment(
+    sessionId: string,
+    stepId: string
+  ): Promise<LlmAsyncAcceptedResponse> {
+    requestingComment.value = true
+    error.value = null
+    try {
+      const response = await http.post<LlmAsyncAcceptedResponse>(
+        `/sessions/${sessionId}/llm/comment`,
+        { stepId }
+      )
+      return response.data
+    } catch (err) {
+      requestingComment.value = false
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Request Advisory Comment',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to request LLM step analysis'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    }
+  }
+
+  async function sendChatMessage(
+    sessionId: string,
+    message: string
+  ): Promise<LlmAsyncAcceptedResponse> {
+    if (!message || !message.trim()) {
+      throw new Error('Chat message cannot be blank')
+    }
+    const trimmed = message.trim()
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+
+    const userMsg: LlmChatMessage = {
+      id,
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date().toISOString()
+    }
+    chatMessages.value = [...chatMessages.value, userMsg]
+    sendingChat.value = true
+    error.value = null
+
+    try {
+      const response = await http.post<LlmAsyncAcceptedResponse>(
+        `/sessions/${sessionId}/llm/chat`,
+        { message: trimmed }
+      )
+      return response.data
+    } catch (err) {
+      sendingChat.value = false
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Send Chat Message',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to send tactical chat query'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    }
+  }
+
   function connectSse(sessionId: string): void {
     disconnectSse()
 
@@ -477,6 +559,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     es.addEventListener('session_completed', (e: MessageEvent) => {
       const data = parsePayload(e)
       appendSseEvent('session_completed', 'SUCCESS', 'Audit session marked COMPLETED', data)
+      requestingComment.value = false
+      sendingChat.value = false
       const sessionsStore = useSessionsStore()
       if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
         sessionsStore.currentSession.state = 'COMPLETED'
@@ -486,6 +570,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     es.addEventListener('session_aborted', (e: MessageEvent) => {
       const data = parsePayload(e)
       appendSseEvent('session_aborted', 'WARN', 'Audit session ABORTED', data)
+      requestingComment.value = false
+      sendingChat.value = false
       const sessionsStore = useSessionsStore()
       if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
         sessionsStore.currentSession.state = 'ABORTED'
@@ -505,15 +591,38 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     es.addEventListener('llm_comment_ready', (e: MessageEvent) => {
       const data = parsePayload(e)
       appendSseEvent('llm_comment_ready', 'INFO', 'LLM Advisor commentary ready', data)
+      latestAdvisory.value = {
+        stepId: String(data.stepId || ''),
+        toolId: data.toolId ? String(data.toolId) : undefined,
+        comment: String(data.comment || ''),
+        suggestedTool: data.suggestedTool ? String(data.suggestedTool) : null,
+        suggestedReason: data.suggestedReason ? String(data.suggestedReason) : null,
+        timestamp: typeof data.timestamp === 'string' ? data.timestamp : new Date().toISOString()
+      }
+      requestingComment.value = false
     })
 
     es.addEventListener('llm_chat_reply', (e: MessageEvent) => {
       const data = parsePayload(e)
       appendSseEvent('llm_chat_reply', 'INFO', 'LLM Advisor chat reply received', data)
+      const id =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `reply-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+      const replyMsg: LlmChatMessage = {
+        id,
+        role: 'assistant',
+        content: String(data.reply || ''),
+        timestamp: typeof data.timestamp === 'string' ? data.timestamp : new Date().toISOString()
+      }
+      chatMessages.value = [...chatMessages.value, replyMsg]
+      sendingChat.value = false
     })
 
     es.onerror = () => {
       sseConnectionState.value = 'ERROR'
+      requestingComment.value = false
+      sendingChat.value = false
     }
   }
 
@@ -546,6 +655,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     policyAlertMessage.value = null
     triggeringToolId.value = null
     error.value = null
+    latestAdvisory.value = null
+    chatMessages.value = []
+    requestingComment.value = false
+    sendingChat.value = false
   }
 
   return {
@@ -557,6 +670,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     sseEvents,
     sseConnectionState,
     policyAlertMessage,
+    latestAdvisory,
+    chatMessages,
+    requestingComment,
+    sendingChat,
     loadingTools,
     loadingSteps,
     loadingStepDetail,
@@ -576,6 +693,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     selectStep,
     fetchStepDetail,
     runTool,
+    requestStepComment,
+    sendChatMessage,
     connectSse,
     disconnectSse,
     clearSseEvents,

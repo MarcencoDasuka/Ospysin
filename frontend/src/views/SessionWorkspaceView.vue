@@ -30,7 +30,11 @@ const {
   error: workspaceError,
   hasActiveExecution,
   latestCompletedHttpHeadersStepId,
-  latestCompletedTechDetectStepId
+  latestCompletedTechDetectStepId,
+  latestAdvisory,
+  chatMessages,
+  requestingComment,
+  sendingChat
 } = storeToRefs(workspaceStore)
 
 const healthStore = useHealthStore()
@@ -44,6 +48,10 @@ const sseLevelFilter = ref<'ALL' | SseLogLevel>('ALL')
 const autoScroll = ref(true)
 const sseCollapsed = ref(false)
 const eventListEl = ref<HTMLElement | null>(null)
+
+// Tactical Chat & Advisory states
+const chatInput = ref('')
+const chatListEl = ref<HTMLElement | null>(null)
 
 // Combined error for action banner
 const combinedError = computed(() => sessionError.value || workspaceError.value)
@@ -65,6 +73,52 @@ watch(
     }
   }
 )
+
+// Chat auto-scroll handler
+watch(
+  () => chatMessages.value.length,
+  async () => {
+    if (chatListEl.value) {
+      await nextTick()
+      chatListEl.value.scrollTop = chatListEl.value.scrollHeight
+    }
+  }
+)
+
+async function handleRequestComment() {
+  if (
+    !currentSession.value ||
+    currentSession.value.state !== 'ACTIVE' ||
+    !activeStepDetail.value ||
+    activeStepDetail.value.status !== 'COMPLETED' ||
+    requestingComment.value
+  ) {
+    return
+  }
+  try {
+    await workspaceStore.requestStepComment(currentSession.value.id, activeStepDetail.value.executionId)
+  } catch {
+    // Error captured in workspaceStore.error
+  }
+}
+
+async function handleSendChat() {
+  if (
+    !currentSession.value ||
+    currentSession.value.state !== 'ACTIVE' ||
+    sendingChat.value ||
+    !chatInput.value.trim()
+  ) {
+    return
+  }
+  const msg = chatInput.value.trim()
+  chatInput.value = ''
+  try {
+    await workspaceStore.sendChatMessage(currentSession.value.id, msg)
+  } catch {
+    // Error captured in workspaceStore.error
+  }
+}
 
 let isUnmounted = false
 
@@ -1027,12 +1081,16 @@ const tlsSummary = computed(() => {
         <!-- 3. Right Panel: AI Advisor (3 cols) -->
         <section
           data-testid="advisor-panel"
-          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col min-h-[500px]"
+          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col min-h-[500px]"
         >
-          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
-              AI Advisor
-            </h3>
+          <!-- Advisor Header -->
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <i class="pi pi-microchip-ai text-cyan-400 text-sm"></i>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
+                AI Advisor
+              </h3>
+            </div>
             <span
               :class="[
                 'text-[10px] font-mono px-2 py-0.5 rounded border',
@@ -1045,19 +1103,153 @@ const tlsSummary = computed(() => {
             </span>
           </div>
 
-          <div class="flex-1 flex flex-col justify-between pt-3 space-y-4">
-            <div class="p-3 rounded bg-slate-950/80 border border-slate-800 space-y-2">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-microchip-ai text-cyan-400"></i>
-                <h4 class="text-xs font-semibold text-slate-200">Dolphin3-Cyber Advisory</h4>
+          <!-- Advisor Body Container -->
+          <div class="flex-1 flex flex-col gap-3 pt-3 overflow-hidden">
+            <!-- Top Section: Commentary & Suggested Tool (Scrollable if needed) -->
+            <div class="space-y-3 overflow-y-auto max-h-[45%] pr-1">
+              <!-- Latest Commentary Card -->
+              <div
+                data-testid="advisor-comment-card"
+                class="p-3 rounded bg-slate-950/80 border border-slate-800 space-y-2"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-bold uppercase font-mono text-slate-300 tracking-wider">
+                    Latest Commentary
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="refresh-comment-button"
+                    :disabled="!activeStepDetail || activeStepDetail.status !== 'COMPLETED' || currentSession.state !== 'ACTIVE' || requestingComment"
+                    @click="handleRequestComment"
+                    class="px-2 py-0.5 rounded text-[10px] font-mono border transition-colors flex items-center gap-1 bg-slate-900 text-cyan-300 border-cyan-800/60 hover:border-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Request on-demand analysis for current step"
+                  >
+                    <span v-if="requestingComment" class="h-2 w-2 border border-cyan-300 border-t-transparent rounded-full animate-spin"></span>
+                    <span>{{ requestingComment ? 'Analyzing...' : (latestAdvisory ? 'Re-analyze' : 'Analyze Step') }}</span>
+                  </button>
+                </div>
+
+                <div v-if="requestingComment" class="flex items-center gap-2 py-2 text-xs font-mono text-cyan-400">
+                  <div class="h-3 w-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Advisor generating step analysis...</span>
+                </div>
+                <p
+                  v-else-if="latestAdvisory && latestAdvisory.comment"
+                  class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-sans"
+                >{{ latestAdvisory.comment }}</p>
+                <p v-else class="text-xs text-slate-500 italic">
+                  Select a completed step and click 'Analyze Step' or run a tool to receive AI tactical guidance.
+                </p>
               </div>
-              <p class="text-xs text-slate-400 leading-relaxed">
-                Automated commentary and tactical next-step reasoning will be active in Phase 12.
-              </p>
+
+              <!-- Suggested Next Step Card -->
+              <div
+                v-if="latestAdvisory && latestAdvisory.suggestedTool"
+                data-testid="suggested-tool-card"
+                class="p-3 rounded bg-cyan-950/30 border border-cyan-800/60 space-y-2"
+              >
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[11px] font-bold uppercase font-mono text-cyan-300 tracking-wider flex items-center gap-1">
+                    <i class="pi pi-compass text-cyan-400"></i>
+                    <span>Suggested Next Step</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-200">
+                    {{ latestAdvisory.suggestedTool }}
+                  </span>
+                </div>
+
+                <p v-if="latestAdvisory.suggestedReason" class="text-xs text-slate-300 leading-relaxed">
+                  {{ latestAdvisory.suggestedReason }}
+                </p>
+
+                <div class="pt-1">
+                  <button
+                    type="button"
+                    data-testid="run-suggested-tool-button"
+                    :disabled="currentSession.state !== 'ACTIVE' || hasActiveExecution || isToolDisabled({ id: latestAdvisory.suggestedTool } as ToolMetadata)"
+                    @click="triggerToolRun(latestAdvisory.suggestedTool!)"
+                    class="w-full px-3 py-1.5 rounded text-xs font-semibold font-mono border bg-cyan-900/70 hover:bg-cyan-800 text-cyan-200 border-cyan-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <span>Run {{ latestAdvisory.suggestedTool }}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div class="p-3 rounded bg-slate-950/50 border border-slate-900 text-slate-600 text-xs font-mono text-center">
-              Tactical chat interface ready for Phase 12 LLM integration.
+            <!-- Bottom Section: Tactical Chat (Flex-1) -->
+            <div class="flex-1 flex flex-col rounded bg-slate-950/60 border border-slate-800 p-2.5 min-h-[220px] overflow-hidden">
+              <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800/80 shrink-0">
+                <span class="text-[11px] font-bold uppercase font-mono text-slate-300 tracking-wider flex items-center gap-1">
+                  <i class="pi pi-comments text-slate-400"></i>
+                  <span>Tactical Chat</span>
+                </span>
+                <span v-if="sendingChat" class="text-[10px] font-mono text-cyan-400 flex items-center gap-1">
+                  <span class="h-2 w-2 border border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
+                  Reasoning...
+                </span>
+              </div>
+
+              <!-- Chat Messages List -->
+              <div
+                ref="chatListEl"
+                data-testid="advisor-chat-list"
+                class="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs"
+              >
+                <div
+                  v-if="chatMessages.length === 0"
+                  class="h-full flex items-center justify-center text-center p-3 text-slate-500 text-[11px]"
+                >
+                  No messages yet. Ask tactical self-defense questions about discovered findings.
+                </div>
+
+                <div
+                  v-for="msg in chatMessages"
+                  :key="msg.id"
+                  data-testid="advisor-chat-message"
+                  :class="[
+                    'p-2 rounded text-xs leading-relaxed space-y-1',
+                    msg.role === 'user'
+                      ? 'bg-slate-900 border border-slate-800 text-slate-200'
+                      : 'bg-cyan-950/40 border border-cyan-900/60 text-slate-200'
+                  ]"
+                >
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span :class="msg.role === 'user' ? 'text-cyan-400 font-bold' : 'text-emerald-400 font-bold'">
+                      {{ msg.role === 'user' ? '[Operator]' : '[Advisor]' }}
+                    </span>
+                    <span class="text-slate-500">{{ formatTimestamp(msg.timestamp) }}</span>
+                  </div>
+                  <div class="whitespace-pre-wrap font-sans text-slate-300">{{ msg.content }}</div>
+                </div>
+
+                <div v-if="sendingChat" class="p-2 rounded bg-cyan-950/20 border border-cyan-900/40 flex items-center gap-2 text-cyan-400 text-xs">
+                  <div class="h-2.5 w-2.5 border border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Advisor is evaluating session telemetry...</span>
+                </div>
+              </div>
+
+              <!-- Chat Input Form -->
+              <form
+                @submit.prevent="handleSendChat"
+                class="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5 shrink-0"
+              >
+                <input
+                  v-model="chatInput"
+                  data-testid="advisor-chat-input"
+                  type="text"
+                  placeholder="Ask tactical question..."
+                  :disabled="currentSession.state !== 'ACTIVE' || sendingChat"
+                  class="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+                />
+                <button
+                  type="submit"
+                  data-testid="advisor-chat-submit"
+                  :disabled="currentSession.state !== 'ACTIVE' || sendingChat || !chatInput.trim()"
+                  class="px-2.5 py-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/60 hover:bg-cyan-900 text-xs font-mono font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                >
+                  Send
+                </button>
+              </form>
             </div>
           </div>
         </section>

@@ -470,4 +470,138 @@ describe('Workspace Store (useWorkspaceStore)', () => {
     expect(activeInstance!.closed).toBe(true)
     expect(store.sseConnectionState).toBe('DISCONNECTED')
   })
+
+  it('requestStepComment calls backend endpoint and handles requestingComment lifecycle', async () => {
+    const store = useWorkspaceStore()
+    expect(store.requestingComment).toBe(false)
+
+    let postedUrl = ''
+    let postedBody: any = null
+    vi.spyOn(http, 'post').mockImplementation(async (url: string, body: any) => {
+      postedUrl = url
+      postedBody = body
+      return { data: { status: 'PENDING', message: 'LLM commentary request enqueued' } } as any
+    })
+
+    const result = await store.requestStepComment('session-123', 'step-abc')
+
+    expect(postedUrl).toBe('/sessions/session-123/llm/comment')
+    expect(postedBody).toEqual({ stepId: 'step-abc' })
+    expect(result.status).toBe('PENDING')
+    expect(store.requestingComment).toBe(true)
+  })
+
+  it('sendChatMessage appends user message, calls backend endpoint and handles sendingChat lifecycle', async () => {
+    const store = useWorkspaceStore()
+    expect(store.chatMessages).toHaveLength(0)
+    expect(store.sendingChat).toBe(false)
+
+    let postedUrl = ''
+    let postedBody: any = null
+    vi.spyOn(http, 'post').mockImplementation(async (url: string, body: any) => {
+      postedUrl = url
+      postedBody = body
+      return { data: { status: 'PENDING', message: 'Chat query enqueued' } } as any
+    })
+
+    const result = await store.sendChatMessage('session-123', 'Why is HSTS important?')
+
+    expect(postedUrl).toBe('/sessions/session-123/llm/chat')
+    expect(postedBody).toEqual({ message: 'Why is HSTS important?' })
+    expect(result.status).toBe('PENDING')
+    expect(store.chatMessages).toHaveLength(1)
+    expect(store.chatMessages[0].role).toBe('user')
+    expect(store.chatMessages[0].content).toBe('Why is HSTS important?')
+    expect(store.sendingChat).toBe(true)
+
+    // Rejects blank message
+    await expect(store.sendChatMessage('session-123', '   ')).rejects.toThrow(
+      'Chat message cannot be blank'
+    )
+  })
+
+  it('SSE handles llm_comment_ready and llm_chat_reply and resetWorkspace clears LLM state', () => {
+    let activeInstance: MockEventSource | null = null
+    class RecordingMockEventSource extends MockEventSource {
+      constructor(url: string, init?: any) {
+        super(url, init)
+        activeInstance = this
+      }
+    }
+    globalThis.EventSource = RecordingMockEventSource as any
+
+    const store = useWorkspaceStore()
+    store.connectSse('session-123')
+    store.requestingComment = true
+    store.sendingChat = true
+
+    // 1. Dispatch llm_comment_ready
+    activeInstance!.dispatch('llm_comment_ready', {
+      stepId: 'step-1',
+      toolId: 'http_headers',
+      comment: 'Missing CSP header detected.',
+      suggestedTool: 'tls_info',
+      suggestedReason: 'Inspect TLS certificate.',
+      timestamp: '2026-10-15T12:00:00Z'
+    })
+
+    expect(store.latestAdvisory).not.toBeNull()
+    expect(store.latestAdvisory?.comment).toBe('Missing CSP header detected.')
+    expect(store.latestAdvisory?.suggestedTool).toBe('tls_info')
+    expect(store.latestAdvisory?.suggestedReason).toBe('Inspect TLS certificate.')
+    expect(store.requestingComment).toBe(false)
+
+    // 2. Dispatch llm_chat_reply
+    activeInstance!.dispatch('llm_chat_reply', {
+      reply: 'HSTS ensures browsers only connect via HTTPS.'
+    })
+
+    expect(store.chatMessages).toHaveLength(1)
+    expect(store.chatMessages[0].role).toBe('assistant')
+    expect(store.chatMessages[0].content).toBe('HSTS ensures browsers only connect via HTTPS.')
+    expect(store.sendingChat).toBe(false)
+
+    // 3. resetWorkspace clears all LLM state
+    store.resetWorkspace()
+    expect(store.latestAdvisory).toBeNull()
+    expect(store.chatMessages).toHaveLength(0)
+    expect(store.requestingComment).toBe(false)
+    expect(store.sendingChat).toBe(false)
+  })
+
+  it('SSE resets requestingComment and sendingChat on session_completed, session_aborted, and onerror (P12-05)', () => {
+    let activeInstance: MockEventSource | null = null
+    class RecordingMockEventSource extends MockEventSource {
+      constructor(url: string, init?: any) {
+        super(url, init)
+        activeInstance = this
+      }
+    }
+    globalThis.EventSource = RecordingMockEventSource as any
+
+    const store = useWorkspaceStore()
+    store.connectSse('session-123')
+
+    // 1. Reset on session_completed
+    store.requestingComment = true
+    store.sendingChat = true
+    activeInstance!.dispatch('session_completed', { sessionId: 'session-123' })
+    expect(store.requestingComment).toBe(false)
+    expect(store.sendingChat).toBe(false)
+
+    // 2. Reset on session_aborted
+    store.requestingComment = true
+    store.sendingChat = true
+    activeInstance!.dispatch('session_aborted', { sessionId: 'session-123' })
+    expect(store.requestingComment).toBe(false)
+    expect(store.sendingChat).toBe(false)
+
+    // 3. Reset on onerror
+    store.requestingComment = true
+    store.sendingChat = true
+    activeInstance!.onerror?.(new Event('error'))
+    expect(store.sseConnectionState).toBe('ERROR')
+    expect(store.requestingComment).toBe(false)
+    expect(store.sendingChat).toBe(false)
+  })
 })

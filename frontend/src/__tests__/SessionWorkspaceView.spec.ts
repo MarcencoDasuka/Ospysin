@@ -753,4 +753,167 @@ describe('Screen 3: Session Workspace View (SessionWorkspaceView.vue)', () => {
     // connectSse MUST NOT have been called
     expect(connectSpy).not.toHaveBeenCalledWith('test-session-unmount')
   })
+
+  // --- Phase 12 Local LLM Advisor UI Tests ---
+
+  it('renders advisor comment card with default guidance and updates when latestAdvisory is present', async () => {
+    const wrapper = await createWrapper()
+    const workspaceStore = useWorkspaceStore()
+
+    const commentCard = wrapper.find('[data-testid="advisor-comment-card"]')
+    expect(commentCard.exists()).toBe(true)
+    expect(commentCard.text()).toContain('Select a completed step and click \'Analyze Step\'')
+
+    // Set latestAdvisory
+    workspaceStore.latestAdvisory = {
+      stepId: 'step-http-1',
+      toolId: 'http_headers',
+      comment: 'Strict-Transport-Security header is present, but Content-Security-Policy is missing.',
+      suggestedTool: 'whois_lookup',
+      suggestedReason: 'Verify domain registrant and nameservers for infrastructure mapping.',
+      timestamp: '2026-10-15T12:00:00Z'
+    }
+    await wrapper.vm.$nextTick()
+
+    expect(commentCard.text()).toContain('Strict-Transport-Security header is present')
+    const suggestedCard = wrapper.find('[data-testid="suggested-tool-card"]')
+    expect(suggestedCard.exists()).toBe(true)
+    expect(suggestedCard.text()).toContain('whois_lookup')
+    expect(suggestedCard.text()).toContain('Verify domain registrant and nameservers')
+  })
+
+  it('clicking refresh-comment-button calls workspaceStore.requestStepComment with active step ID', async () => {
+    const wrapper = await createWrapper()
+    const workspaceStore = useWorkspaceStore()
+
+    // Select http_headers step so activeStepDetail is COMPLETED
+    await wrapper.find('[data-testid="step-tab-step-http-1"]').trigger('click')
+    await flushPromises()
+
+    const requestSpy = vi.spyOn(workspaceStore, 'requestStepComment').mockResolvedValue({
+      status: 'ACCEPTED',
+      message: 'Step commentary requested'
+    })
+
+    const refreshBtn = wrapper.find('[data-testid="refresh-comment-button"]')
+    expect(refreshBtn.exists()).toBe(true)
+    expect(refreshBtn.attributes('disabled')).toBeUndefined()
+
+    await refreshBtn.trigger('click')
+    expect(requestSpy).toHaveBeenCalledWith('test-session-123', 'step-http-1')
+  })
+
+  it('renders suggested-tool-card and clicking run-suggested-tool-button triggers tool execution', async () => {
+    const wrapper = await createWrapper()
+    const workspaceStore = useWorkspaceStore()
+
+    workspaceStore.latestAdvisory = {
+      stepId: 'step-http-1',
+      toolId: 'http_headers',
+      comment: 'Review DNS records for subdomains.',
+      suggestedTool: 'dns_lookup',
+      suggestedReason: 'Enumerate authoritative nameservers.',
+      timestamp: '2026-10-15T12:00:00Z'
+    }
+    await wrapper.vm.$nextTick()
+
+    const runSuggestedBtn = wrapper.find('[data-testid="run-suggested-tool-button"]')
+    expect(runSuggestedBtn.exists()).toBe(true)
+    expect(runSuggestedBtn.text()).toContain('Run dns_lookup')
+
+    const runSpy = vi.spyOn(workspaceStore, 'runTool').mockResolvedValue({
+      executionId: 'dns-run-99',
+      sessionId: 'test-session-123',
+      toolId: 'dns_lookup',
+      status: 'PENDING',
+      enqueuedAt: '2026-10-15T12:01:00Z'
+    })
+
+    await runSuggestedBtn.trigger('click')
+    expect(runSpy).toHaveBeenCalledWith('test-session-123', 'dns_lookup')
+  })
+
+  it('tactical chat: renders placeholder, submits operator query, and displays chat history', async () => {
+    const wrapper = await createWrapper()
+    const workspaceStore = useWorkspaceStore()
+
+    const chatList = wrapper.find('[data-testid="advisor-chat-list"]')
+    expect(chatList.text()).toContain('No messages yet. Ask tactical self-defense questions')
+
+    const sendSpy = vi.spyOn(workspaceStore, 'sendChatMessage').mockResolvedValue({
+      status: 'ACCEPTED',
+      message: 'Chat message enqueued'
+    })
+
+    const chatInput = wrapper.find('[data-testid="advisor-chat-input"]')
+    await chatInput.setValue('What is the defensive impact of missing CSP?')
+
+    const submitBtn = wrapper.find('[data-testid="advisor-chat-submit"]')
+    expect(submitBtn.attributes('disabled')).toBeUndefined()
+
+    await wrapper.find('form').trigger('submit.prevent')
+    expect(sendSpy).toHaveBeenCalledWith('test-session-123', 'What is the defensive impact of missing CSP?')
+    expect((chatInput.element as HTMLInputElement).value).toBe('')
+
+    // Render populated chat messages
+    workspaceStore.chatMessages = [
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'What is the defensive impact of missing CSP?',
+        timestamp: '2026-10-15T12:02:00Z'
+      },
+      {
+        id: 'msg-2',
+        role: 'assistant',
+        content: 'Without CSP, the application is vulnerable to Cross-Site Scripting (XSS).',
+        timestamp: '2026-10-15T12:02:02Z'
+      }
+    ]
+    await wrapper.vm.$nextTick()
+
+    const messageEls = wrapper.findAll('[data-testid="advisor-chat-message"]')
+    expect(messageEls).toHaveLength(2)
+    expect(messageEls[0].text()).toContain('[Operator]')
+    expect(messageEls[0].text()).toContain('What is the defensive impact of missing CSP?')
+    expect(messageEls[1].text()).toContain('[Advisor]')
+    expect(messageEls[1].text()).toContain('Without CSP, the application is vulnerable')
+  })
+
+  it('strict XSS prevention: malicious scripts in advisory comment and chat messages render purely as text', async () => {
+    const wrapper = await createWrapper()
+    const workspaceStore = useWorkspaceStore()
+
+    const maliciousAdvisory = '<img src=x onerror=alert("advisory-xss") /><script id="advisor-xss">alert(1)</script>'
+    const maliciousChat = '<div id="malicious-chat-div">Injected</div><script id="chat-xss">alert(2)</script>'
+
+    workspaceStore.latestAdvisory = {
+      stepId: 'step-http-1',
+      toolId: 'http_headers',
+      comment: maliciousAdvisory,
+      suggestedTool: null,
+      suggestedReason: null,
+      timestamp: '2026-10-15T12:05:00Z'
+    }
+
+    workspaceStore.chatMessages = [
+      {
+        id: 'msg-malicious',
+        role: 'assistant',
+        content: maliciousChat,
+        timestamp: '2026-10-15T12:05:05Z'
+      }
+    ]
+    await wrapper.vm.$nextTick()
+
+    // Ensure raw elements were never created in the DOM
+    expect(wrapper.find('#advisor-xss').exists()).toBe(false)
+    expect(wrapper.find('#chat-xss').exists()).toBe(false)
+    expect(wrapper.find('#malicious-chat-div').exists()).toBe(false)
+
+    // Ensure strings are safely rendered as text
+    expect(wrapper.text()).toContain(maliciousAdvisory)
+    expect(wrapper.text()).toContain(maliciousChat)
+  })
 })
+

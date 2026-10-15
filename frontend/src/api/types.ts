@@ -151,3 +151,32 @@ export interface WorkspaceSseEvent {
   payload: Record<string, unknown>
 }
 
+export interface LlmCommentRequest {
+  stepId: string
+}
+
+export interface LlmChatRequest {
+  message: string
+}
+
+export interface LlmAsyncAcceptedResponse {
+  status: string
+  message: string
+}
+
+export interface LlmCommentPayload {
+  stepId: string
+  toolId?: string
+  comment: string
+  suggestedTool?: string | null
+  suggestedReason?: string | null
+  timestamp?: string
+}
+
+export interface LlmChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+}
+
