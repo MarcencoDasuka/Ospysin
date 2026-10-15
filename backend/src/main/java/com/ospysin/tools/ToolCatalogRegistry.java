@@ -307,7 +307,13 @@ public class ToolCatalogRegistry {
             try {
                 tool.validateParams(safeParams);
             } catch (ValidationException e) {
-                invalidParams.addAll(e.getInvalidParams());
+                for (InvalidParam ip : e.getInvalidParams()) {
+                    boolean alreadyPresent = invalidParams.stream()
+                            .anyMatch(existing -> existing.name().equals(ip.name()));
+                    if (!alreadyPresent) {
+                        invalidParams.add(ip);
+                    }
+                }
             }
         }
 

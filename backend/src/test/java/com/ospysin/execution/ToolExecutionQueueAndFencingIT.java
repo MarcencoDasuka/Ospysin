@@ -106,6 +106,9 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     @Autowired
     private Clock clock;
 
+    @Autowired(required = false)
+    private com.ospysin.tools.probes.HttpHeadersTool realHttpHeadersTool;
+
     private AuditSession activeSession;
 
     @BeforeEach
@@ -178,6 +181,9 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     void tearDown() {
         hostRateLimiter.reset();
         toolExecutionWorker.setAutoDispatchEnabled(true);
+        if (realHttpHeadersTool != null) {
+            toolCatalogRegistry.registerToolBean(realHttpHeadersTool);
+        }
     }
 
     @Test
