@@ -178,4 +178,18 @@ class ToolCatalogRegistryTest {
                     assertThat(ve.getInvalidParams()).extracting(InvalidParam::name).contains("customPaths");
                 });
     }
+
+    @Test
+    @DisplayName("validateParams rejects referralDepth out of range 0..3")
+    void validateParamsRejectsInvalidReferralDepth() {
+        assertThatThrownBy(() -> registry.validateParams("whois_lookup", Map.of("referralDepth", 4)))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> {
+                    ValidationException ve = (ValidationException) ex;
+                    assertThat(ve.getInvalidParams()).extracting(InvalidParam::name).contains("referralDepth");
+                });
+
+        assertThatThrownBy(() -> registry.validateParams("whois_lookup", Map.of("referralDepth", -1)))
+                .isInstanceOf(ValidationException.class);
+    }
 }

@@ -257,8 +257,8 @@ public class ToolCatalogRegistry {
 
         if (safeParams.containsKey("referralDepth") && safeParams.get("referralDepth") != null) {
             int depth = parseInteger(safeParams.get("referralDepth"));
-            if (depth < 0 || depth > 10) {
-                invalidParams.add(new InvalidParam("referralDepth", "referralDepth must be between 0 and 10"));
+            if (depth < 0 || depth > 3) {
+                invalidParams.add(new InvalidParam("referralDepth", "referralDepth must be between 0 and 3"));
             }
         }
 
