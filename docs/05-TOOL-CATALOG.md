@@ -120,12 +120,17 @@ All tool executions adhere to four distinct payload thresholds to prevent memory
   {
     "protocol": "TLSv1.3",
     "cipherSuite": "TLS_AES_256_GCM_SHA384",
-    "subject": "CN=example.com",
-    "issuer": "CN=DigiCert Global Root CA",
-    "validFrom": "2025-01-01T00:00:00Z",
-    "validUntil": "2026-01-01T00:00:00Z",
-    "daysRemaining": 84,
-    "sanList": ["example.com", "www.example.com"]
+    "subject": "CN=example.com, O=Example Inc, C=US",
+    "issuer": "CN=DigiCert Global Root CA, O=DigiCert Inc, C=US",
+    "serialNumber": "04:a1:2b:3c:4d:5e:6f:70",
+    "sigAlgName": "SHA256withRSA",
+    "notBefore": "2026-01-01T00:00:00Z",
+    "notAfter": "2027-01-01T00:00:00Z",
+    "daysUntilExpiry": 90,
+    "selfSigned": false,
+    "sanEntries": ["example.com", "www.example.com"],
+    "hostnameVerified": true,
+    "trustVerified": true
   }
   ```
 
@@ -143,10 +148,28 @@ All tool executions adhere to four distinct payload thresholds to prevent memory
 - **Output Schema**:
   ```json
   {
+    "finalUrl": "https://example.com/",
     "statusCode": 200,
     "httpVersion": "HTTP/1.1",
-    "headers": { "strict-transport-security": "max-age=31536000", "server": "nginx" },
-    "cookies": [ { "name": "SESSIONID", "secure": true, "httpOnly": true, "sameSite": "Lax" } ],
+    "headers": {
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "server": "nginx"
+    },
+    "cookies": [
+      {
+        "name": "SESSIONID",
+        "value": "xyz123",
+        "domain": "example.com",
+        "path": "/",
+        "expires": null,
+        "maxAge": null,
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "partitioned": false
+      }
+    ],
+    "redirectChain": [],
     "serverBanner": "nginx"
   }
   ```

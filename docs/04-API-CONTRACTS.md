@@ -65,30 +65,34 @@ Returns the list of all 15 registered tools across the 3 execution tiers.
 [
   {
     "id": "http_headers",
-    "name": "HTTP Headers & Security Check",
-    "description": "Inspects response headers, cookies, and evaluates security header posture.",
+    "name": "HTTP Headers & Cookies",
     "category": "HTTP",
     "executionType": "DIRECT_TARGET_PROBE",
-    "riskLevel": "LOW",
-    "timeoutSeconds": 10
+    "description": "Fetches and analyzes HTTP response headers, cookies, security posture, and server banners.",
+    "inputSchema": {
+      "customPort": null,
+      "followRedirects": false
+    }
   },
   {
     "id": "dns_lookup",
     "name": "DNS Record Enumeration",
-    "description": "Queries A, AAAA, CNAME, MX, TXT, and NS records for target domain.",
     "category": "DNS",
     "executionType": "THIRD_PARTY_RECON",
-    "riskLevel": "LOW",
-    "timeoutSeconds": 10
+    "description": "Queries primary resource records (A, AAAA, MX, TXT, NS, CNAME) for the target domain.",
+    "inputSchema": {
+      "recordTypes": ["A", "AAAA", "MX", "TXT", "NS"]
+    }
   },
   {
     "id": "security_headers_score",
     "name": "Security Headers Evaluation Score",
-    "description": "Purely offline analysis tool evaluating headers previously captured by http_headers.",
     "category": "ANALYSIS",
     "executionType": "OFFLINE_ANALYSIS",
-    "riskLevel": "LOW",
-    "timeoutSeconds": 1
+    "description": "Purely offline analysis tool evaluating headers previously captured by http_headers.",
+    "inputSchema": {
+      "stepId": ""
+    }
   }
 ]
 ```

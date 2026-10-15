@@ -22,7 +22,7 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true, Position = 0, HelpMessage = "Phase identifier, e.g. phase-02-setup, phase-03")]
+    [Parameter(Mandatory = $true, Position = 0, HelpMessage = "Phase identifier, e.g. phase-11 or 11")]
     [string]$Phase,
 
     [Parameter(Mandatory = $false, Position = 1)]
@@ -36,6 +36,11 @@ $ErrorActionPreference = "Continue"
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Normalize numeric phase (e.g. "11" -> "phase-11")
+if ($Phase -match '^\d+$') {
+    $Phase = "phase-{0:D2}" -f [int]$Phase
+}
 
 # Markdown backtick and fence helpers
 $bt = [char]96
@@ -242,7 +247,8 @@ try {
             $Lines.Add("- **Exit Code**: $mvnExit")
             $Lines.Add("")
             $Lines.Add("${bt3}text")
-            $rawLines = $mvnOutput -split "`r?`n"
+            $cleanMvn = $mvnOutput -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+            $rawLines = $cleanMvn -split "`r?`n"
             $matched = $rawLines | Where-Object {
                 $_ -match "Tests run:" -or
                 $_ -match "BUILD SUCCESS" -or
