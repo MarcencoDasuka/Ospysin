@@ -54,11 +54,22 @@ public class PinnedHttpClient {
     }
 
     /**
-     * Executes an HTTP GET probe against a target URI, optionally following redirects up to 3 hops
-     * with mandatory PolicyEngine revalidation at each hop.
+     * Executes an HTTP GET probe against a target URI with default 64 KB caps and 10s read timeout.
      */
     public PinnedProbeResult executeWithRedirects(URI initialUri, InetAddress initialIp, boolean followRedirects,
                                                   SessionMode mode, ScopeAsset scopeAsset) throws IOException, PolicyViolationException {
+        return executeWithRedirects(initialUri, initialIp, followRedirects, mode, scopeAsset,
+                64 * 1024L, 64 * 1024L, DEFAULT_READ_TIMEOUT_MS);
+    }
+
+    /**
+     * Executes an HTTP GET probe against a target URI, optionally following redirects up to 3 hops
+     * with mandatory PolicyEngine revalidation at each hop, parameterized by payload caps and timeouts.
+     */
+    public PinnedProbeResult executeWithRedirects(URI initialUri, InetAddress initialIp, boolean followRedirects,
+                                                  SessionMode mode, ScopeAsset scopeAsset,
+                                                  long maxWireBytes, long maxDecompressedBytes,
+                                                  int readTimeoutMs) throws IOException, PolicyViolationException {
         URI currentUri = initialUri;
         InetAddress currentIp = initialIp;
         int hopNumber = 0;
@@ -67,7 +78,7 @@ public class PinnedHttpClient {
         StringBuilder combinedRawOutput = new StringBuilder();
 
         while (true) {
-            PinnedHttpResponse response = executeSingle(currentUri, currentIp);
+            PinnedHttpResponse response = executeSingle(currentUri, currentIp, maxWireBytes, maxDecompressedBytes, readTimeoutMs);
 
             int status = response.statusCode();
             boolean isRedirect = status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
@@ -120,9 +131,29 @@ public class PinnedHttpClient {
     }
 
     /**
-     * Executes a single IP-pinned HTTP GET request without following redirects.
+     * Executes a single IP-pinned HTTP GET request without following redirects, using default caps and timeouts.
      */
     public PinnedHttpResponse executeSingle(URI uri, InetAddress pinnedIp) throws IOException {
+        return executeSingle(uri, pinnedIp, 64 * 1024L, 64 * 1024L, DEFAULT_READ_TIMEOUT_MS);
+    }
+
+    /**
+     * Executes a single IP-pinned HTTP GET request without following redirects, with custom bounds.
+     */
+    public PinnedHttpResponse executeSingle(URI uri, InetAddress pinnedIp,
+                                            long maxWireBytes, long maxDecompressedBytes,
+                                            int readTimeoutMs) throws IOException {
+        try {
+            boolean is5ArgOverridden = getClass().getMethod("executeSingle", URI.class, InetAddress.class, long.class, long.class, int.class)
+                    .getDeclaringClass() != PinnedHttpClient.class;
+            boolean is2ArgOverridden = getClass().getMethod("executeSingle", URI.class, InetAddress.class)
+                    .getDeclaringClass() != PinnedHttpClient.class;
+            if (!is5ArgOverridden && is2ArgOverridden) {
+                return executeSingle(uri, pinnedIp);
+            }
+        } catch (NoSuchMethodException ignored) {
+        }
+
         String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase(Locale.ROOT) : "http";
         boolean isHttps = "https".equals(scheme);
 
@@ -139,7 +170,7 @@ public class PinnedHttpClient {
         Socket rawSocket = new Socket();
         try {
             rawSocket.connect(new InetSocketAddress(pinnedIp, port), DEFAULT_CONNECT_TIMEOUT_MS);
-            rawSocket.setSoTimeout(DEFAULT_READ_TIMEOUT_MS);
+            rawSocket.setSoTimeout(readTimeoutMs);
 
             Socket activeSocket = rawSocket;
             if (isHttps) {
@@ -185,7 +216,7 @@ public class PinnedHttpClient {
 
             // Read response status and headers
             InputStream in = activeSocket.getInputStream();
-            return parseHttpResponse(uri, in);
+            return parseHttpResponse(uri, in, maxWireBytes, maxDecompressedBytes);
         } finally {
             try {
                 rawSocket.close();
@@ -194,7 +225,8 @@ public class PinnedHttpClient {
         }
     }
 
-    private PinnedHttpResponse parseHttpResponse(URI requestUri, InputStream in) throws IOException {
+    private PinnedHttpResponse parseHttpResponse(URI requestUri, InputStream in,
+                                                 long maxWireBytes, long maxDecompressedBytes) throws IOException {
         List<String> rawHeaderLines = new ArrayList<>();
         ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
         int totalHeaderBytes = 0;
@@ -285,7 +317,7 @@ public class PinnedHttpClient {
 
             InputStream bodyStream = in;
             if (isChunked) {
-                bodyStream = new ChunkedInputStream(in);
+                bodyStream = new ChunkedInputStream(in, maxWireBytes);
             } else if (contentLength > 0) {
                 bodyStream = new FixedLengthInputStream(in, contentLength);
             }
@@ -295,12 +327,13 @@ public class PinnedHttpClient {
                     .anyMatch(v -> v.toLowerCase(Locale.ROOT).contains("gzip"));
 
             ByteArrayOutputStream bodyCapture = new ByteArrayOutputStream();
-            try (BoundedResponseStream boundedStream = PayloadLimitGuard.wrap(bodyStream, isGzip)) {
+            try (BoundedResponseStream boundedStream = PayloadLimitGuard.wrap(bodyStream, maxWireBytes, maxDecompressedBytes, isGzip)) {
                 byte[] buf = new byte[8192];
                 int read;
+                int captureCap = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE);
                 while ((read = boundedStream.read(buf)) != -1) {
-                    if (bodyCapture.size() < 64 * 1024) {
-                        bodyCapture.write(buf, 0, Math.min(read, 64 * 1024 - bodyCapture.size()));
+                    if (bodyCapture.size() < captureCap) {
+                        bodyCapture.write(buf, 0, Math.min(read, captureCap - bodyCapture.size()));
                     }
                 }
                 bodyBytes = bodyCapture.toByteArray();
@@ -341,7 +374,8 @@ public class PinnedHttpClient {
                 normalized,
                 response.cookies(),
                 redirectChain,
-                rawOutput
+                rawOutput,
+                response.bodyBytes()
         );
     }
 
@@ -450,10 +484,15 @@ public class PinnedHttpClient {
         private long remainingInChunk = 0;
         private boolean eof = false;
         private long totalWireBytesRead = 0;
-        private static final long MAX_WIRE_BYTES = PayloadLimitGuard.DEFAULT_WIRE_CAP;
+        private final long maxWireBytes;
 
         public ChunkedInputStream(InputStream in) {
+            this(in, PayloadLimitGuard.DEFAULT_WIRE_CAP);
+        }
+
+        public ChunkedInputStream(InputStream in, long maxWireBytes) {
             this.in = in;
+            this.maxWireBytes = maxWireBytes;
         }
 
         @Override
@@ -559,8 +598,8 @@ public class PinnedHttpClient {
 
         private void trackWireBytes(long count) throws IOException {
             totalWireBytesRead += count;
-            if (totalWireBytesRead > MAX_WIRE_BYTES) {
-                throw new IOException("Chunked stream exceeded maximum wire cap of " + MAX_WIRE_BYTES + " bytes");
+            if (totalWireBytesRead > maxWireBytes) {
+                throw new IOException("Chunked stream exceeded maximum wire cap of " + maxWireBytes + " bytes");
             }
         }
     }

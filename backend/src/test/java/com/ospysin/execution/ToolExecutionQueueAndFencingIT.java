@@ -115,6 +115,7 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     void setUp() throws Exception {
         hostRateLimiter.reset();
         toolExecutionWorker.setAutoDispatchEnabled(false);
+        toolExecutionWorker.setAutoAdvisoryEnabled(false);
 
         when(dnsResolver.resolveAll("example.com"))
                 .thenReturn(new InetAddress[]{InetAddress.getByName("93.184.216.34")});
@@ -181,6 +182,7 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
     void tearDown() {
         hostRateLimiter.reset();
         toolExecutionWorker.setAutoDispatchEnabled(false);
+        toolExecutionWorker.setAutoAdvisoryEnabled(false);
         if (realHttpHeadersTool != null) {
             toolCatalogRegistry.registerToolBean(realHttpHeadersTool);
         }

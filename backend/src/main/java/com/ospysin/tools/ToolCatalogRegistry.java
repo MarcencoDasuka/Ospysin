@@ -234,17 +234,36 @@ public class ToolCatalogRegistry {
             }
         }
 
-        if (safeParams.containsKey("maxUrls") && safeParams.get("maxUrls") != null) {
-            int maxUrls = parseInteger(safeParams.get("maxUrls"));
-            if (maxUrls < 1 || maxUrls > 10000) {
-                invalidParams.add(new InvalidParam("maxUrls", "maxUrls must be between 1 and 10000"));
+        if (safeParams.containsKey("maxUrls")) {
+            Object val = safeParams.get("maxUrls");
+            if (val == null) {
+                invalidParams.add(new InvalidParam("maxUrls", "maxUrls must not be null"));
+            } else {
+                int maxUrls = parseInteger(val);
+                if (maxUrls < 1 || maxUrls > 1000) {
+                    invalidParams.add(new InvalidParam("maxUrls", "maxUrls must be between 1 and 1000"));
+                }
             }
         }
 
-        if (safeParams.containsKey("maxLinks") && safeParams.get("maxLinks") != null) {
-            int maxLinks = parseInteger(safeParams.get("maxLinks"));
-            if (maxLinks < 1 || maxLinks > 5000) {
-                invalidParams.add(new InvalidParam("maxLinks", "maxLinks must be between 1 and 5000"));
+        if (safeParams.containsKey("customPath")) {
+            Object val = safeParams.get("customPath");
+            if (val == null || !(val instanceof String s) || s.isBlank() || !s.startsWith("/") || s.startsWith("//")
+                    || s.contains("..") || s.contains("\\") || s.contains("\r") || s.contains("\n")
+                    || s.contains("://") || s.length() > 255) {
+                invalidParams.add(new InvalidParam("customPath", "customPath must be a non-null, non-blank string starting with '/', not start with '//', not contain '..', '\\', CR, LF, or '://', and length must be <= 255"));
+            }
+        }
+
+        if (safeParams.containsKey("maxLinks")) {
+            Object val = safeParams.get("maxLinks");
+            if (val == null) {
+                invalidParams.add(new InvalidParam("maxLinks", "maxLinks must not be null"));
+            } else {
+                int maxLinks = parseInteger(val);
+                if (maxLinks < 1 || maxLinks > 5000) {
+                    invalidParams.add(new InvalidParam("maxLinks", "maxLinks must be between 1 and 5000"));
+                }
             }
         }
 
