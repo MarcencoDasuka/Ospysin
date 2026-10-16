@@ -460,4 +460,16 @@ class ToolExecutionQueueAndFencingIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.invalidParams", hasSize(1)))
                 .andExpect(jsonPath("$.invalidParams[0].name").value("customPort"));
     }
+
+    @Test
+    @DisplayName("All 15 canonical tools in ToolCatalogRegistry resolve to active OspysinTool beans")
+    void all15CanonicalToolsResolveToBeans() {
+        List<ToolMetadata> allTools = toolCatalogRegistry.getAllTools();
+        assertThat(allTools).hasSize(15);
+        for (ToolMetadata metadata : allTools) {
+            assertThat(toolCatalogRegistry.getTool(metadata.id()))
+                    .as("Tool bean for '%s' must be present in registry", metadata.id())
+                    .isPresent();
+        }
+    }
 }

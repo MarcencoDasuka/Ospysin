@@ -192,4 +192,35 @@ class ToolCatalogRegistryTest {
         assertThatThrownBy(() -> registry.validateParams("whois_lookup", Map.of("referralDepth", -1)))
                 .isInstanceOf(ValidationException.class);
     }
+
+    @Test
+    @DisplayName("validateParams rejects explicit null parameter values")
+    void validateParamsRejectsExplicitNullParameters() {
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("maxFiles", null);
+        assertThatThrownBy(() -> registry.validateParams("js_secrets_scanner", params))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(ex -> assertThat(((ValidationException) ex).getInvalidParams())
+                        .extracting(InvalidParam::name).contains("maxFiles"));
+
+        params.clear();
+        params.put("customPaths", null);
+        assertThatThrownBy(() -> registry.validateParams("sensitive_files_check", params))
+                .isInstanceOf(ValidationException.class);
+
+        params.clear();
+        params.put("stopOnFirstExposed", null);
+        assertThatThrownBy(() -> registry.validateParams("sensitive_files_check", params))
+                .isInstanceOf(ValidationException.class);
+
+        params.clear();
+        params.put("customOrigins", null);
+        assertThatThrownBy(() -> registry.validateParams("cors_misconfig_check", params))
+                .isInstanceOf(ValidationException.class);
+
+        params.clear();
+        params.put("subdomains", null);
+        assertThatThrownBy(() -> registry.validateParams("subdomain_takeover_check", params))
+                .isInstanceOf(ValidationException.class);
+    }
 }

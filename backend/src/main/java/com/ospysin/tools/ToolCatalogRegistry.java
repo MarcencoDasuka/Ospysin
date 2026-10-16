@@ -267,10 +267,15 @@ public class ToolCatalogRegistry {
             }
         }
 
-        if (safeParams.containsKey("maxFiles") && safeParams.get("maxFiles") != null) {
-            int maxFiles = parseInteger(safeParams.get("maxFiles"));
-            if (maxFiles < 1 || maxFiles > 50) {
-                invalidParams.add(new InvalidParam("maxFiles", "maxFiles must be between 1 and 50"));
+        if (safeParams.containsKey("maxFiles")) {
+            Object val = safeParams.get("maxFiles");
+            if (val == null) {
+                invalidParams.add(new InvalidParam("maxFiles", "maxFiles must not be null"));
+            } else {
+                int maxFiles = parseInteger(val);
+                if (maxFiles < 1 || maxFiles > 50) {
+                    invalidParams.add(new InvalidParam("maxFiles", "maxFiles must be between 1 and 50"));
+                }
             }
         }
 
@@ -306,16 +311,21 @@ public class ToolCatalogRegistry {
         // Validate list parameters
         List<String> listParamNames = List.of("recordTypes", "customPaths", "jsUrls", "customOrigins", "subdomains");
         for (String listParam : listParamNames) {
-            if (safeParams.containsKey(listParam) && safeParams.get(listParam) != null) {
-                if (!(safeParams.get(listParam) instanceof List<?>)) {
+            if (safeParams.containsKey(listParam)) {
+                Object val = safeParams.get(listParam);
+                if (val == null) {
+                    invalidParams.add(new InvalidParam(listParam, listParam + " must not be null"));
+                } else if (!(val instanceof List<?>)) {
                     invalidParams.add(new InvalidParam(listParam, listParam + " must be a list"));
                 }
             }
         }
 
-        if (safeParams.containsKey("stopOnFirstExposed") && safeParams.get("stopOnFirstExposed") != null) {
+        if (safeParams.containsKey("stopOnFirstExposed")) {
             Object val = safeParams.get("stopOnFirstExposed");
-            if (!(val instanceof Boolean)) {
+            if (val == null) {
+                invalidParams.add(new InvalidParam("stopOnFirstExposed", "stopOnFirstExposed must not be null"));
+            } else if (!(val instanceof Boolean)) {
                 invalidParams.add(new InvalidParam("stopOnFirstExposed", "stopOnFirstExposed must be a boolean"));
             }
         }

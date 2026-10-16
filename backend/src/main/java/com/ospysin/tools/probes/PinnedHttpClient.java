@@ -3,6 +3,7 @@ package com.ospysin.tools.probes;
 import com.ospysin.policy.ObfuscatedIpParser;
 import com.ospysin.policy.PolicyDecision;
 import com.ospysin.policy.PolicyEngine;
+import com.ospysin.policy.io.AggregatePayloadBudget;
 import com.ospysin.policy.io.BoundedResponseStream;
 import com.ospysin.policy.io.PayloadLimitGuard;
 import com.ospysin.scope.ScopeAsset;
@@ -70,6 +71,32 @@ public class PinnedHttpClient {
                                                   SessionMode mode, ScopeAsset scopeAsset,
                                                   long maxWireBytes, long maxDecompressedBytes,
                                                   int readTimeoutMs) throws IOException, PolicyViolationException {
+        return executeWithRedirects(initialUri, initialIp, followRedirects, mode, scopeAsset,
+                maxWireBytes, maxDecompressedBytes, readTimeoutMs, null);
+    }
+
+    /**
+     * Executes an HTTP GET probe against a target URI, optionally following redirects up to 3 hops
+     * with mandatory PolicyEngine revalidation at each hop, supporting an AggregatePayloadBudget.
+     */
+    public PinnedProbeResult executeWithRedirects(URI initialUri, InetAddress initialIp, boolean followRedirects,
+                                                  SessionMode mode, ScopeAsset scopeAsset,
+                                                  long maxWireBytes, long maxDecompressedBytes,
+                                                  int readTimeoutMs,
+                                                  AggregatePayloadBudget aggregateBudget) throws IOException, PolicyViolationException {
+        if (aggregateBudget == null) {
+            try {
+                boolean is8ArgOverridden = getClass().getMethod("executeWithRedirects",
+                        URI.class, InetAddress.class, boolean.class, SessionMode.class, ScopeAsset.class,
+                        long.class, long.class, int.class).getDeclaringClass() != PinnedHttpClient.class;
+                if (is8ArgOverridden) {
+                    return executeWithRedirects(initialUri, initialIp, followRedirects, mode, scopeAsset,
+                            maxWireBytes, maxDecompressedBytes, readTimeoutMs);
+                }
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+
         URI currentUri = initialUri;
         InetAddress currentIp = initialIp;
         int hopNumber = 0;
@@ -78,7 +105,8 @@ public class PinnedHttpClient {
         StringBuilder combinedRawOutput = new StringBuilder();
 
         while (true) {
-            PinnedHttpResponse response = executeSingle(currentUri, currentIp, maxWireBytes, maxDecompressedBytes, readTimeoutMs);
+            PinnedHttpResponse response = executeSingle(currentUri, currentIp, Collections.emptyMap(),
+                    maxWireBytes, maxDecompressedBytes, readTimeoutMs, aggregateBudget);
 
             int status = response.statusCode();
             boolean isRedirect = status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
@@ -153,6 +181,35 @@ public class PinnedHttpClient {
             }
         } catch (NoSuchMethodException ignored) {
         }
+        return executeSingle(uri, pinnedIp, Collections.emptyMap(), maxWireBytes, maxDecompressedBytes, readTimeoutMs, null);
+    }
+
+    /**
+     * Executes a single IP-pinned HTTP GET request without following redirects, with custom headers and aggregate budget.
+     */
+    public PinnedHttpResponse executeSingle(
+            URI uri,
+            InetAddress pinnedIp,
+            Map<String, String> customHeaders,
+            long maxWireBytes,
+            long maxDecompressedBytes,
+            int readTimeoutMs,
+            AggregatePayloadBudget aggregateBudget
+    ) throws IOException {
+        if ((customHeaders == null || customHeaders.isEmpty()) && aggregateBudget == null) {
+            try {
+                boolean is5ArgOverridden = getClass().getMethod("executeSingle", URI.class, InetAddress.class, long.class, long.class, int.class)
+                        .getDeclaringClass() != PinnedHttpClient.class;
+                boolean is2ArgOverridden = getClass().getMethod("executeSingle", URI.class, InetAddress.class)
+                        .getDeclaringClass() != PinnedHttpClient.class;
+                if (is5ArgOverridden) {
+                    return executeSingle(uri, pinnedIp, maxWireBytes, maxDecompressedBytes, readTimeoutMs);
+                } else if (is2ArgOverridden) {
+                    return executeSingle(uri, pinnedIp);
+                }
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
 
         String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase(Locale.ROOT) : "http";
         boolean isHttps = "https".equals(scheme);
@@ -202,12 +259,33 @@ public class PinnedHttpClient {
                 hostHeader = formattedHost + ":" + port;
             }
 
+            StringBuilder customHeaderLines = new StringBuilder();
+            if (customHeaders != null && !customHeaders.isEmpty()) {
+                for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
+                    String key = entry.getKey();
+                    String val = entry.getValue();
+                    if (key == null || val == null) {
+                        continue;
+                    }
+                    if (key.contains("\r") || key.contains("\n") || val.contains("\r") || val.contains("\n")) {
+                        throw new IllegalArgumentException("Header name or value contains CR or LF: " + key + "=" + val);
+                    }
+                    String lowerKey = key.toLowerCase(Locale.ROOT);
+                    if (lowerKey.equals("host") || lowerKey.equals("connection")
+                            || lowerKey.equals("accept-encoding") || lowerKey.equals("user-agent")) {
+                        continue;
+                    }
+                    customHeaderLines.append(key).append(": ").append(val).append("\r\n");
+                }
+            }
+
             String request = "GET " + path + " HTTP/1.1\r\n"
                     + "Host: " + hostHeader + "\r\n"
                     + "User-Agent: Ospysin-Audit/1.0\r\n"
                     + "Accept: */*\r\n"
                     + "Accept-Encoding: gzip\r\n"
                     + "Connection: close\r\n"
+                    + customHeaderLines
                     + "\r\n";
 
             OutputStream out = activeSocket.getOutputStream();
@@ -216,7 +294,7 @@ public class PinnedHttpClient {
 
             // Read response status and headers
             InputStream in = activeSocket.getInputStream();
-            return parseHttpResponse(uri, in, maxWireBytes, maxDecompressedBytes);
+            return parseHttpResponse(uri, in, maxWireBytes, maxDecompressedBytes, aggregateBudget);
         } finally {
             try {
                 rawSocket.close();
@@ -226,7 +304,8 @@ public class PinnedHttpClient {
     }
 
     private PinnedHttpResponse parseHttpResponse(URI requestUri, InputStream in,
-                                                 long maxWireBytes, long maxDecompressedBytes) throws IOException {
+                                                 long maxWireBytes, long maxDecompressedBytes,
+                                                 AggregatePayloadBudget aggregateBudget) throws IOException {
         List<String> rawHeaderLines = new ArrayList<>();
         ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
         int totalHeaderBytes = 0;
@@ -327,7 +406,7 @@ public class PinnedHttpClient {
                     .anyMatch(v -> v.toLowerCase(Locale.ROOT).contains("gzip"));
 
             ByteArrayOutputStream bodyCapture = new ByteArrayOutputStream();
-            try (BoundedResponseStream boundedStream = PayloadLimitGuard.wrap(bodyStream, maxWireBytes, maxDecompressedBytes, isGzip)) {
+            try (BoundedResponseStream boundedStream = PayloadLimitGuard.wrap(bodyStream, maxWireBytes, maxDecompressedBytes, isGzip, aggregateBudget)) {
                 byte[] buf = new byte[8192];
                 int read;
                 int captureCap = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE);
