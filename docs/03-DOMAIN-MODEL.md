@@ -66,8 +66,8 @@ This document defines the core business entities, relationships, invariants, and
 
 ### 9. Finding
 - **Purpose**: A human-evaluated, verified security risk, vulnerability, or misconfiguration established by the auditor.
-- **Key Fields**: `id` (UUID), `session_id` (UUID), `observation_id` (UUID, optional), `title` (String), `description` (Text), `severity` (INFO | LOW | MEDIUM | HIGH | CRITICAL), `confidence` (TENTATIVE | CONFIRMED), `status` (POTENTIAL | UNDER_REVIEW | CONFIRMED | REJECTED | ARCHIVED), `rejection_reason` (Text, mandatory if REJECTED), `remediation` (Text).
-- **Invariants**: May reference an Observation (optional) and zero or more Evidence items. Hard deletion is prohibited; false positives transition to `REJECTED` with an auditable `rejection_reason`.
+- **Key Fields**: `id` (UUID), `session_id` (UUID), `observation_id` (UUID, optional), `title` (String), `description` (Text), `severity` (INFO | LOW | MEDIUM | HIGH | CRITICAL), `confidence` (TENTATIVE | FIRM | CONFIRMED | CERTAIN), `status` (OPEN | POTENTIAL | UNDER_REVIEW | CONFIRMED | FALSE_POSITIVE | REJECTED | ARCHIVED), `rejection_reason` (Text, mandatory if REJECTED), `remediation` (Text).
+- **Invariants**: May reference an Observation (optional) and zero or more Evidence items. Hard deletion is prohibited; false positives or dismissed items transition to `FALSE_POSITIVE` or `REJECTED` (with an auditable `rejection_reason` required for `REJECTED`) and are excluded from active vulnerability counts while preserved in the report appendix.
 
 ### 10. Evidence
 - **Purpose**: A specific excerpt, raw header line, or snippet proving a Finding.

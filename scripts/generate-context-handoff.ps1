@@ -47,8 +47,10 @@ try {
     $branch = (git rev-parse --abbrev-ref HEAD).Trim()
     $timestampUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-    function Get-LanguageTag([string]$ext) {
-        switch ($ext.ToLowerInvariant()) {
+    function Get-LanguageTag([System.IO.FileInfo]$file) {
+        if ($file.Name -eq "Dockerfile") { return "dockerfile" }
+        if ($file.Name -eq ".env.example") { return "ini" }
+        switch ($file.Extension.ToLowerInvariant()) {
             ".java"       { return "java" }
             ".ts"         { return "typescript" }
             ".vue"        { return "vue" }
@@ -63,6 +65,7 @@ try {
             ".md"         { return "markdown" }
             ".ps1"        { return "powershell" }
             ".properties" { return "properties" }
+            ".conf"       { return "nginx" }
             default       { return "text" }
         }
     }
@@ -83,7 +86,7 @@ try {
         foreach ($file in $files) {
             if (-not $file -or -not $file.Exists) { continue }
             $relPath = ($file.FullName.Substring($RepoRoot.Length + 1)).Replace('\', '/')
-            $lang = Get-LanguageTag $file.Extension
+            $lang = Get-LanguageTag $file
             $rawContent = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
 
             $useFence = $fence4
@@ -109,10 +112,10 @@ try {
     }
 
     # -------------------------------------------------------------------------
-    # Part 1: Git History, File Tree, Specifications and ADRs
+    # Part 1: Git History, File Tree, Specifications, ADRs & Infra/Release Config
     # -------------------------------------------------------------------------
     $part1 = [System.Collections.Generic.List[string]]::new()
-    Add-Header $part1 "Ospysin Context Handoff - Part 1: Architecture Specs, ADRs and Tree"
+    Add-Header $part1 "Ospysin Context Handoff - Part 1: Architecture Specs, ADRs, Infra and Tree"
 
     $part1.Add("## 1. Git Commit History (Last 25 Commits)")
     $part1.Add("")
@@ -122,23 +125,28 @@ try {
     $part1.Add($bt3)
     $part1.Add("")
 
-    $part1.Add("## 2. Full Tracked File Tree (git ls-files)")
+    $part1.Add("## 2. Full Repository File Tree (Tracked + Uncommitted Non-Ignored)")
     $part1.Add("")
     $part1.Add("${bt3}text")
-    $gitFiles = (git ls-files) -join "`n"
+    $gitFiles = (git ls-files --cached --others --exclude-standard | Sort-Object) -join "`n"
     $part1.Add($gitFiles)
     $part1.Add($bt3)
     $part1.Add("")
 
-    $part1.Add("## 3. Specification and ADR Documentation")
+    $part1.Add("## 3. Specification, ADR, Infrastructure and Release Documentation")
     $part1.Add("")
 
-    $specFiles = @(Get-ChildItem -Path (Join-Path $RepoRoot "docs") -Filter "*.md" -File | Sort-Object Name)
+    $specFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+    foreach ($rootFile in @("README.md", "CHANGELOG.md", "infra/docker-compose.yml", "infra/.env.example", "backend/Dockerfile", "frontend/Dockerfile", "frontend/nginx.conf", ".github/workflows/ci.yml")) {
+        $rfPath = Join-Path $RepoRoot $rootFile
+        if (Test-Path $rfPath) { $specFiles.Add((Get-Item $rfPath)) }
+    }
+    Get-ChildItem -Path (Join-Path $RepoRoot "docs") -Filter "*.md" -File | Sort-Object Name | ForEach-Object { $specFiles.Add($_) }
     $adrDir = Join-Path $RepoRoot "docs/adr"
     if (Test-Path -Path $adrDir) {
-        $specFiles += @(Get-ChildItem -Path $adrDir -Filter "*.md" -File | Sort-Object Name)
+        Get-ChildItem -Path $adrDir -Filter "*.md" -File | Sort-Object Name | ForEach-Object { $specFiles.Add($_) }
     }
-    Add-SourceFiles $part1 $specFiles
+    Add-SourceFiles $part1 $specFiles.ToArray()
     Save-Bundle "$OutputPrefix-1-docs.md" $part1
 
     # -------------------------------------------------------------------------
@@ -186,13 +194,13 @@ try {
     Save-Bundle "$OutputPrefix-3-backend-tools.md" $part3
 
     # -------------------------------------------------------------------------
-    # Part 4: Frontend Production Code and Configuration
+    # Part 4: Frontend Production Code, Configuration and Playwright E2E Suite
     # -------------------------------------------------------------------------
     $part4 = [System.Collections.Generic.List[string]]::new()
-    Add-Header $part4 "Ospysin Context Handoff - Part 4: Frontend Production Code (Vue 3 + TS)"
+    Add-Header $part4 "Ospysin Context Handoff - Part 4: Frontend Production Code (Vue 3 + TS) & E2E"
 
     $feFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-    foreach ($cfg in @("frontend/package.json", "frontend/vite.config.ts", "frontend/tsconfig.json", "frontend/tailwind.config.js")) {
+    foreach ($cfg in @("frontend/package.json", "frontend/vite.config.ts", "frontend/tsconfig.json", "frontend/tailwind.config.js", "frontend/playwright.config.ts")) {
         $cfgPath = Join-Path $RepoRoot $cfg
         if (Test-Path $cfgPath) { $feFiles.Add((Get-Item $cfgPath)) }
     }
@@ -204,6 +212,14 @@ try {
             Sort-Object FullName |
             ForEach-Object { $feFiles.Add($_) }
     }
+
+    $feE2e = Join-Path $RepoRoot "frontend/e2e"
+    if (Test-Path $feE2e) {
+        Get-ChildItem -Path $feE2e -Recurse -File |
+            Sort-Object FullName |
+            ForEach-Object { $feFiles.Add($_) }
+    }
+
     Add-SourceFiles $part4 $feFiles.ToArray()
     Save-Bundle "$OutputPrefix-4-frontend.md" $part4
 

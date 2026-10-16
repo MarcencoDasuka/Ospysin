@@ -106,14 +106,14 @@ Author and cross-verify the comprehensive documentation specification suite:
 - Liveness & readiness health check (`GET /api/health`) with Ollama connectivity probe and trailing-slash normalization.
 - Test suite: 23 unit and Testcontainers integration tests passing against PostgreSQL 16 Alpine.
 
-### Phase 4: Operator Session Authentication & CSRF Security
+### Phase 4: Operator Session Authentication & CSRF Security (Completed)
 - Endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
 - State: Stateful HTTP session authentication using `JSESSIONID` cookie (`HttpOnly; SameSite=Strict; Path=/`).
 - CSRF Protection: `CookieCsrfTokenRepository.withHttpOnlyFalse()` providing `XSRF-TOKEN` cookie, validated via `X-XSRF-TOKEN` request header on state-mutating requests.
 - Authorization: Role-based access control (`ROLE_ADMIN`, `ROLE_OPERATOR`) with security filter chain rules.
 - Test suite: MockMvc unit tests for authentication success, invalid credentials, session invalidation, CSRF token validation, and unauthenticated access rejection.
 
-### Phase 5: Frontend Foundation, Typed RFC 9457 API Client & Login View
+### Phase 5: Frontend Foundation, Typed RFC 9457 API Client & Login View (Completed)
 - Frontend stack: Vue 3, TypeScript, Vite, Pinia, Vue Router, PrimeVue with Tailwind CSS theme.
 - Typed HTTP Client: Axios wrapper handling RFC 9457 `ProblemDetail` parsing, automatic CSRF token header forwarding (`X-XSRF-TOKEN`), and 401 redirect interceptors.
 - Authentication Store: Pinia `useAuthStore` tracking current operator state and session expiration.
@@ -122,7 +122,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Top Navigation Bar: Application brand, backend connectivity badge (`/api/health`), and authenticated operator profile / logout button.
 - Verification: Component tests and end-to-end login flow validation.
 
-### Phase 6: Network Policy Engine & SSRF / DNS Rebinding Guard
+### Phase 6: Network Policy Engine & SSRF / DNS Rebinding Guard (Completed)
 - Core Engine: `PolicyEngine` evaluating target URLs, domains, and IP addresses against strict scope and network rules.
 - SSRF & Private Network Filter:
   - Block loopback (`127.0.0.0/8`, `::1`), private networks (RFC 1918 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local (`169.254.0.0/16`, `fe80::/10`), carrier-grade NAT (`100.64.0.0/10`), documentation IPs, and multicast ranges.
@@ -131,7 +131,7 @@ Author and cross-verify the comprehensive documentation specification suite:
 - Payload Bounds: Enforce 4-tier bounds (1 MB raw response cap, 5 MB memory limit, decompression bomb defense, and 10 s read timeout).
 - Test suite: Comprehensive unit tests against public targets, internal IPs, cloud metadata endpoints (`169.254.169.254`), and DNS rebinding simulations.
 
-### Phase 7: Audit Session Lifecycle & Scope Attestation API
+### Phase 7: Audit Session Lifecycle & Scope Attestation API (Completed)
 - REST Endpoints:
   - `POST /api/sessions`: Create new session with target URL, execution mode (`LOCAL` / `PUBLIC`), and scope attestation.
   - `GET /api/sessions`: Paginated list of sessions with status and target metadata.
@@ -145,7 +145,7 @@ Author and cross-verify the comprehensive documentation specification suite:
 - Invariants: Disallow tool queuing on completed or aborted sessions; prevent state transitions violating session state machine.
 - Test suite: Integration tests for session lifecycle, optimistic locking, and attestation persistence.
 
-### Phase 8: Session List & New Session Setup Modal UI
+### Phase 8: Session List & New Session Setup Modal UI (Completed)
 - Screen 1 (Session List View):
   - DataTable of existing audit sessions with target URL, mode badge (`LOCAL` / `PUBLIC`), state pill, start timestamp, and action buttons.
   - Quick filters: Active, Completed, Aborted.
@@ -155,7 +155,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Scope Attestation Gate: Mandatory checkbox with legally compliant authorization text; creation button disabled until operator explicitly checks acknowledgment.
 - Pinia Store: `useSessionStore` managing active session list and selection.
 
-### Phase 9: Tool Catalog Registry, PostgreSQL Job Queue & SSE Hub
+### Phase 9: Tool Catalog Registry, PostgreSQL Job Queue & SSE Hub (Completed)
 - Tool Contract: `OspysinTool` interface defining metadata, input schema validation, execution logic, and observation extraction.
 - Catalog Registry: `ToolCatalog` registering tools and exposing `GET /api/tools` with tool capabilities and prerequisites.
 - PostgreSQL 3-Phase Job Queue:
@@ -170,7 +170,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - `TransactionSynchronization.afterCommit` event dispatching preventing phantom event leaks.
 - Test suite: Concurrency tests with multi-threaded workers, lease fencing verification, and SSE subscription tests.
 
-### Phase 10: Core HTTP & TLS Direct Probes
+### Phase 10: Core HTTP & TLS Direct Probes (Completed)
 - `http_headers` Tool:
   - Issue safe `GET` / `HEAD` request to target using pinned IP from Policy Engine.
   - Capture HTTP status, protocol version, and raw headers.
@@ -183,7 +183,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Detect deprecated protocols (TLS 1.0, 1.1) and weak ciphers.
 - Test suite: WireMock HTTP header tests and mock SSL server integration tests.
 
-### Phase 11: Session Workspace UI — 4-Panel Layout & Live SSE Stream
+### Phase 11: Session Workspace UI — 4-Panel Layout & Live SSE Stream (Completed)
 - Screen 3 (Session Workspace View):
   - **Left Panel (Tool Catalog)**: Grouped tool categories (HTTP/TLS, Recon, Crawling, Analysis, Active Probes) with execution trigger buttons.
   - **Center Panel (Results & Execution Viewer)**:
@@ -196,7 +196,7 @@ Author and cross-verify the comprehensive documentation specification suite:
     - Proper SSE connection teardown in Vue `onUnmounted` hook.
 - Pinia Store: `useWorkspaceStore` binding SSE stream to reactive view models.
 
-### Phase 12: Local LLM Advisory Integration
+### Phase 12: Local LLM Advisory Integration (Completed)
 - Spring Client: `OllamaClient` connecting to local Ollama instance (`Dolphin3-Cyber`).
 - Prompt Engineering & Context Management:
   - Context budgeter enforcing strict 1,450-token prompt budget.
@@ -210,7 +210,7 @@ Author and cross-verify the comprehensive documentation specification suite:
 - Right Panel (Advisor UI):
   - Streaming advisory comments, risk highlights, and one-click "Execute Suggested Tool" action.
 
-### Phase 13: External Third-Party Recon Tools
+### Phase 13: External Third-Party Recon Tools (Completed)
 - `dns_lookup` Tool:
   - Query DNS records (`A`, `AAAA`, `MX`, `TXT`, `NS`, `SOA`, `CNAME`, `CAA`, `PTR`) via `dnsjava`.
   - Validate DNSSEC records and identify SPF/DMARC email security configurations.
@@ -221,7 +221,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Parse registrar, creation date, expiration date, name servers, and registrant organization (redacting private individuals).
 - Test suite: WireMock RDAP responses and isolated DNS tests.
 
-### Phase 14: Web Crawling & Asset Harvester Probes
+### Phase 14: Web Crawling & Asset Harvester Probes (Completed)
 - `robots_txt` Tool:
   - Fetch and parse `/robots.txt` per standard robot exclusion protocol.
   - Extract `Disallow` and `Allow` rules, sitemap references, and crawl-delay directives.
@@ -236,7 +236,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Regex heuristics to extract relative API routes and endpoint paths defined within client-side bundles.
 - Test suite: Jsoup HTML parsing unit tests and XML parser XXE injection attack tests.
 
-### Phase 15: Technology Fingerprinting & Offline Analytical Engine
+### Phase 15: Technology Fingerprinting & Offline Analytical Engine (Completed)
 - `tech_detect` Tool:
   - Heuristic detection of web servers, backend frameworks, CMSs, JavaScript libraries, and reverse proxies from HTTP headers, cookies, meta tags, and script URLs.
   - Confidence scoring (`CONFIRMED`, `PROBABLE`, `TENTATIVE`).
@@ -249,7 +249,7 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Output CVE IDs, CVSS scores, vulnerability descriptions, and recommended mitigation links.
 - Test suite: Technology detection fixture tests, grading calculation unit tests, and CVE matcher tests.
 
-### Phase 16: Active Vulnerability & Exploit Surface Probes
+### Phase 16: Active Vulnerability & Exploit Surface Probes (Completed)
 - `sensitive_files_check` Tool:
   - Probe for common exposed sensitive files: `/.env`, `/.git/HEAD`, `/config.json`, `/wp-config.php.bak`, `/actuator/env`, `/server-status`.
   - Safe byte inspection verifying expected magic signatures rather than blind 200 OK responses (preventing false positives from custom 404 pages).
@@ -263,32 +263,32 @@ Author and cross-verify the comprehensive documentation specification suite:
   - Inspect CNAME records of target subdomains for unresolved aliases pointing to unclaimed cloud providers (AWS S3, GitHub Pages, Heroku, Azure).
 - Test suite: Sensitive file fixture tests, secret detection regex/entropy tests, and CORS response verification.
 
-### Phase 17: Findings Curation, Evidence Linking & Standalone HTML/PDF Reporting
+### Phase 17: Findings Curation, Evidence Linking & Standalone HTML/PDF Reporting (Completed)
 - Findings Workflow API:
-  - `POST /api/sessions/{id}/findings`: Create finding from observation or operator input.
-  - `PUT /api/sessions/{id}/findings/{findingId}`: Update title, description, severity, and remediation advice.
-  - `POST /api/sessions/{id}/findings/{findingId}/status`: Transition status (`POTENTIAL` → `UNDER_REVIEW` → `CONFIRMED` / `REJECTED`).
-  - Mandatory rejection reason: Enforce non-empty `rejection_reason` when marking status as `REJECTED`; rejected findings are excluded from primary report.
+  - `GET /api/sessions/{id}/observations`: List automated observations for session.
+  - `POST /api/sessions/{id}/findings`: Create finding from observation or operator input (`OPEN`).
+  - `PATCH /api/sessions/{id}/findings/{findingId}`: Update title, description, severity, confidence, remediation, or transition status (`OPEN` → `CONFIRMED` / `FALSE_POSITIVE` / `REJECTED`; `CONFIRMED` → `REJECTED`).
+  - Mandatory rejection reason: Enforce non-empty `rejectionReason` when marking status as `REJECTED`; rejected and false-positive findings are excluded from active vulnerability counts and recorded in the report appendix.
 - Evidence Linking API:
-  - `POST /api/findings/{id}/evidence`: Link immutable excerpt/slice from `ToolResult` to substantiate finding.
+  - `POST /api/sessions/{id}/findings/{findingId}/evidence`: Link immutable excerpt/slice from `ToolResult` to substantiate finding with cross-session BOLA verification.
 - Standalone HTML/PDF Report:
-  - `GET /api/sessions/{id}/report`: Full session audit report in JSON or standalone HTML.
-  - Report features: Executive summary, target scope, methodology, findings severity distribution chart, detailed vulnerabilities with evidence snippets, and operator audit trail.
-  - Printable CSS stylesheet for pixel-perfect browser "Save as PDF" rendering.
+  - `GET /api/sessions/{id}/report`: Full session audit report in standalone HTML (`text/html;charset=UTF-8`).
+  - Report features: Executive summary, target scope, cryptographic attestation hash, findings severity distribution, detailed vulnerabilities with evidence snippets, tool execution timeline, and rejected/false-positive appendix.
+  - Printable CSS stylesheet (`@media print`) for browser "Print / Save as PDF" rendering.
 - UI Components:
-  - Workspace Findings Drawer: Review, edit, confirm, or reject findings with evidence viewer.
-  - Screen 4 (Printable Report View): Clean, standalone report layout with export buttons.
+  - Workspace Findings Drawer: Review, edit, confirm, mark false-positive, or reject findings with evidence viewer.
+  - Screen 4 (Printable Report View): Clean, standalone report layout with sandboxed preview (`<iframe sandbox="">`), HTML download, and print/PDF export buttons.
 - Test suite: Findings lifecycle integration tests and report generation tests.
 
-### Phase 18: End-to-End Playwright Suite, Docker Compose Hardening, CI Pipeline & `v0.1.0` Release
+### Phase 18: End-to-End Playwright Suite, Docker Compose Hardening, CI Pipeline & `v0.1.0` Release (Completed)
 - End-to-End Test Suite:
   - Playwright test scenarios covering full operator workflow: Login → Session Setup → Attestation Check → Tool Execution → Real-Time SSE Log → Findings Curation → Report Export.
 - Docker Compose Hardening:
   - Multi-stage Dockerfiles for backend (distroless/Alpine JRE 21) and frontend (Nginx unprivileged).
   - Health checks, resource limits, read-only root filesystems, non-root users (`uid: 10001`).
-  - Ollama container integration with automated model pulling (`dolphin3-cyber`).
+  - Ollama host/container integration (`Dolphin3-Cyber-8B`).
 - CI/CD Pipeline:
-  - GitHub Actions workflow: linting, Maven clean verify, Testcontainers PostgreSQL tests, Playwright E2E run, and JaCoCo coverage validation (>= 80% backend, >= 60% frontend).
+  - GitHub Actions workflow: linting, Maven clean verify, Testcontainers PostgreSQL tests, Playwright E2E run, and JaCoCo coverage validation (>= 80% backend).
 - Release Tagging:
   - Final documentation freeze, release notes, license verification, and `v0.1.0` Git tag creation.
 

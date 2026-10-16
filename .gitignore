@@ -57,3 +57,10 @@ scratch/
 
 # Audit Snapshots (temporary review bundles)
 docs/audits/snapshots/
+
+# Playwright E2E artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+test-results/
+playwright-report/

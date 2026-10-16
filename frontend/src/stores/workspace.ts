@@ -662,12 +662,28 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
   }
 
+  function syncSessionFindingCount(sessionId: string): void {
+    const sessionsStore = useSessionsStore()
+    const count = activeFindingsCount.value
+    if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
+      sessionsStore.currentSession.findingCount = count
+    }
+    const idx = sessionsStore.sessions.findIndex((s) => s.id === sessionId)
+    if (idx !== -1) {
+      sessionsStore.sessions[idx] = {
+        ...sessionsStore.sessions[idx],
+        findingCount: count
+      }
+    }
+  }
+
   async function fetchFindings(sessionId: string): Promise<Finding[]> {
     loadingFindings.value = true
     error.value = null
     try {
       const response = await http.get<Finding[]>(`/sessions/${sessionId}/findings`)
       findings.value = response.data
+      syncSessionFindingCount(sessionId)
       return response.data
     } catch (err) {
       if (err instanceof ApiError) {
@@ -693,10 +709,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const response = await http.post<Finding>(`/sessions/${sessionId}/findings`, payload)
       const created = response.data
       findings.value.push(created)
-      const sessionsStore = useSessionsStore()
-      if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
-        sessionsStore.currentSession.findingCount = activeFindingsCount.value
-      }
+      syncSessionFindingCount(sessionId)
       return created
     } catch (err) {
       if (err instanceof ApiError) {
@@ -727,10 +740,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       } else {
         findings.value.push(updated)
       }
-      const sessionsStore = useSessionsStore()
-      if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
-        sessionsStore.currentSession.findingCount = activeFindingsCount.value
-      }
+      syncSessionFindingCount(sessionId)
       return updated
     } catch (err) {
       if (err instanceof ApiError) {

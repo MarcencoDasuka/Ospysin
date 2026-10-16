@@ -207,45 +207,46 @@ Fetches the full result payload of an individual execution.
 ---
 
 ### 4. Findings & Evidence Management
+#### `GET /api/sessions/{id}/observations`
+Lists all automated observations extracted across completed tool executions for a session.
+- **Response**: `200 OK`.
+
 #### `POST /api/sessions/{id}/findings`
-Creates an auditor finding from an observation or manual inspection.
+Creates an auditor finding (initial status `OPEN`) from an observation or manual inspection.
 - **Request Body**:
 ```json
 {
+  "observationId": "uuid-of-observation-optional",
   "title": "Missing Content-Security-Policy",
   "description": "Target server omits CSP header, allowing script injection.",
   "severity": "MEDIUM",
-  "confidence": "TENTATIVE",
-  "status": "POTENTIAL",
-  "observationId": "uuid-of-observation-optional"
+  "confidence": "FIRM",
+  "remediation": "Add a strict Content-Security-Policy response header."
 }
 ```
 - **Response**: `201 Created`.
 
 #### `GET /api/sessions/{id}/findings`
-Lists all findings for a session.
+Lists all curated findings and their attached forensic evidence for a session.
 - **Response**: `200 OK`.
 
-#### `PATCH /api/findings/{id}`
-Updates finding fields (severity, remediation, status `UNDER_REVIEW`, `CONFIRMED`).
-- **Response**: `200 OK`.
-
-#### `POST /api/findings/{id}/reject`
-Marks a finding as a false positive with an auditable explanation.
+#### `PATCH /api/sessions/{id}/findings/{findingId}`
+Updates finding fields (`title`, `description`, `severity`, `confidence`, `remediation`) or transitions status (`OPEN` → `CONFIRMED`, `FALSE_POSITIVE`, `REJECTED`; `CONFIRMED` → `REJECTED`). Enforces cross-session BOLA protection and requires a non-blank `rejectionReason` when transitioning to `REJECTED` (logging `FINDING_REJECTED` audit event).
 - **Request Body**:
 ```json
 {
-  "reason": "Verified that endpoint is protected by external WAF and mutual TLS."
+  "status": "REJECTED",
+  "rejectionReason": "Verified that endpoint is protected by external WAF and mutual TLS."
 }
 ```
-- **Response**: `200 OK` (updates status to `REJECTED`, logs audit event).
+- **Response**: `200 OK`.
 
-#### `POST /api/findings/{id}/evidence`
-Links an immutable snippet from `tool_results` to a finding.
+#### `POST /api/sessions/{id}/findings/{findingId}/evidence`
+Links an immutable snippet from `tool_results` (accepting either `resultId` or `executionId` belonging to the same session) to substantiate a finding.
 - **Request Body**:
 ```json
 {
-  "resultId": "uuid-of-tool-result",
+  "resultId": "uuid-of-tool-result-or-execution",
   "snippet": "HTTP/1.1 200 OK\r\nServer: nginx..."
 }
 ```
@@ -285,8 +286,8 @@ Ad-hoc tactical sounding board grounded in session context.
 
 ### 7. Audit Report
 #### `GET /api/sessions/{id}/report`
-Exports aggregated session metadata, confirmed findings (excluding `REJECTED`), evidence, and execution history.
-- **Response**: `200 OK`.
+Generates a standalone, self-contained HTML security audit report (`text/html;charset=UTF-8`) with inline dark-mode and `@media print` stylesheets, executive summary, cryptographic scope attestation hash, severity distribution, active/confirmed findings with forensic evidence snippets, tool execution timeline, and an appendix of rejected / false-positive findings.
+- **Response**: `200 OK` (`text/html;charset=UTF-8`).
 
 ---
 

@@ -59,7 +59,7 @@ function handlePrint() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+  <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col print:bg-white print:text-black print:block">
     <AppHeader class="print:hidden" />
 
     <!-- Top Action Bar -->
@@ -127,7 +127,7 @@ function handlePrint() {
     <div
       v-if="loadingReport || (sessionLoading && !currentSession)"
       data-testid="report-loading-state"
-      class="flex-1 flex items-center justify-center p-12"
+      class="flex-1 flex items-center justify-center p-12 print:hidden"
     >
       <div class="flex flex-col items-center gap-3 text-slate-400">
         <div class="h-8 w-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
@@ -136,12 +136,12 @@ function handlePrint() {
     </div>
 
     <!-- Report Preview Container -->
-    <main v-else class="flex-1 p-6 flex flex-col">
+    <main v-else class="flex-1 p-6 flex flex-col print:p-0 print:block">
       <iframe
         data-testid="report-preview-iframe"
         :srcdoc="reportHtml"
         sandbox=""
-        class="w-full flex-1 min-h-[750px] bg-white rounded border border-slate-800 shadow-xl"
+        class="w-full flex-1 min-h-[750px] bg-white rounded border border-slate-800 shadow-xl print:min-h-screen print:border-0 print:shadow-none print:rounded-none"
         title="Audit Session Security Report"
       ></iframe>
     </main>

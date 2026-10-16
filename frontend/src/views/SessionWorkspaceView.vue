@@ -36,7 +36,8 @@ const {
   chatMessages,
   requestingComment,
   sendingChat,
-  findings
+  findings,
+  loadingFindings
 } = storeToRefs(workspaceStore)
 
 const healthStore = useHealthStore()
@@ -49,6 +50,9 @@ const isFindingsDrawerOpen = ref(false)
 const findingsDrawerRef = ref<InstanceType<typeof FindingsDrawer> | null>(null)
 
 const activeFindingsCount = computed(() => {
+  if (loadingFindings.value && findings.value.length === 0 && currentSession.value) {
+    return currentSession.value.findingCount ?? 0
+  }
   return Array.isArray(findings.value)
     ? findings.value.filter((f) => f.status !== 'REJECTED' && f.status !== 'FALSE_POSITIVE').length
     : 0

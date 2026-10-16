@@ -25,7 +25,7 @@ This document establishes the authoritative domain vocabulary for Ospysin. Consi
 - **Definition**: A human-validated, contextualized security risk, vulnerability, or architectural defect.
 - **Nature**: Operator-curated, qualitative, evaluative.
 - **Example**: *"Exposed Administrative Backup Directory Accessible Without Authentication"*.
-- **Properties**: Has an explicit status (`POTENTIAL`, `UNDER_REVIEW`, `CONFIRMED`, `REJECTED`), severity (`INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), confidence score, remediation guidance, and must be linked to supporting `Evidence`. If marked `REJECTED` (e.g. false positive), an operator justification reason is mandatory, and the item is excluded from the executive report.
+- **Properties**: Has an explicit status (`OPEN`, `CONFIRMED`, `FALSE_POSITIVE`, `REJECTED`), severity (`INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), confidence level (`TENTATIVE`, `FIRM`, `CERTAIN`), remediation guidance, and supporting `Evidence`. If marked `REJECTED`, an operator justification reason (`rejectionReason`) is mandatory, and the item is excluded from active vulnerability counts while preserved in the report appendix.
 - **Distinction**: An Observation becomes a Finding only when the operator reviews, verifies, and formally accepts it into the audit record.
 
 ### 5. Evidence (`Evidence`)

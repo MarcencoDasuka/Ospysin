@@ -29,6 +29,8 @@ export default defineConfig({
         singleThread: true
       }
     },
+    include: ['src/__tests__/**/*.spec.ts'],
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**', 'playwright.config.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
