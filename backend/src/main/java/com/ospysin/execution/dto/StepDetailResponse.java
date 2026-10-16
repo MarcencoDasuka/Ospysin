@@ -13,6 +13,7 @@ import java.util.UUID;
  */
 public record StepDetailResponse(
         UUID executionId,
+        UUID resultId,
         String toolId,
         ExecutionStatus status,
         Long durationMs,
@@ -27,5 +28,21 @@ public record StepDetailResponse(
     public StepDetailResponse {
         parsedData = parsedData != null ? Collections.unmodifiableMap(parsedData) : Collections.emptyMap();
         observations = observations != null ? List.copyOf(observations) : Collections.emptyList();
+    }
+
+    public StepDetailResponse(
+            UUID executionId,
+            String toolId,
+            ExecutionStatus status,
+            Long durationMs,
+            String failureReason,
+            String rawOutput,
+            Map<String, Object> parsedData,
+            Integer score,
+            List<ObservationDto> observations,
+            Instant startedAt,
+            Instant endedAt
+    ) {
+        this(executionId, null, toolId, status, durationMs, failureReason, rawOutput, parsedData, score, observations, startedAt, endedAt);
     }
 }

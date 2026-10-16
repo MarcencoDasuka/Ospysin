@@ -5,8 +5,9 @@ import { storeToRefs } from 'pinia'
 import { useSessionsStore } from '@/stores/sessions'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useHealthStore } from '@/stores/health'
-import type { ToolMetadata, SseLogLevel } from '@/api/types'
+import type { ToolMetadata, SseLogLevel, FindingSeverity } from '@/api/types'
 import AppHeader from '@/components/AppHeader.vue'
+import FindingsDrawer from '@/components/FindingsDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,13 +35,40 @@ const {
   latestAdvisory,
   chatMessages,
   requestingComment,
-  sendingChat
+  sendingChat,
+  findings
 } = storeToRefs(workspaceStore)
 
 const healthStore = useHealthStore()
 const { ollamaStatusText, isOllamaReady } = storeToRefs(healthStore)
 
 const sessionId = computed(() => route.params.id as string)
+
+// Findings Drawer state
+const isFindingsDrawerOpen = ref(false)
+const findingsDrawerRef = ref<InstanceType<typeof FindingsDrawer> | null>(null)
+
+const activeFindingsCount = computed(() => {
+  return Array.isArray(findings.value)
+    ? findings.value.filter((f) => f.status !== 'REJECTED' && f.status !== 'FALSE_POSITIVE').length
+    : 0
+})
+
+function handlePromoteObservation(obs: { id: string; category: string; description: string; severityHeuristic: string }) {
+  isFindingsDrawerOpen.value = true
+  findingsDrawerRef.value?.openNewFindingForm({
+    observationId: obs.id,
+    title: `[${obs.category}] ${obs.description.slice(0, 120)}`,
+    description: obs.description,
+    severity: obs.severityHeuristic as FindingSeverity,
+    confidence: 'FIRM'
+  })
+}
+
+function handleExportReport() {
+  if (!currentSession.value) return
+  router.push(`/sessions/${currentSession.value.id}/report`)
+}
 
 // View tabs & SSE display states
 const activeViewTab = ref<'parsed' | 'raw'>('parsed')
@@ -130,6 +158,7 @@ async function loadWorkspaceData(id: string) {
     await Promise.allSettled([
       workspaceStore.fetchTools(),
       workspaceStore.fetchSteps(id),
+      workspaceStore.fetchFindings(id),
       healthStore.checkHealth()
     ])
     if (isUnmounted || sessionId.value !== id) return
@@ -143,6 +172,7 @@ watch(
   sessionId,
   async (newId, oldId) => {
     if (newId && newId !== oldId) {
+      isFindingsDrawerOpen.value = false
       workspaceStore.resetWorkspace()
       await loadWorkspaceData(newId)
     }
@@ -453,6 +483,24 @@ const tlsSummary = computed(() => {
 
         <!-- Action Controls -->
         <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-testid="toggle-findings-drawer-button"
+            @click="isFindingsDrawerOpen = !isFindingsDrawerOpen"
+            class="px-3 py-1 rounded bg-slate-800 hover:bg-cyan-950 active:bg-cyan-900 text-slate-200 hover:text-cyan-300 text-xs font-mono font-medium border border-slate-700 hover:border-cyan-700/60 transition-colors flex items-center gap-1.5"
+          >
+            <i class="pi pi-shield text-xs text-cyan-400"></i>
+            <span>Findings ({{ activeFindingsCount }})</span>
+          </button>
+          <button
+            type="button"
+            data-testid="open-report-view-button"
+            @click="handleExportReport"
+            class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 text-xs font-mono font-medium border border-slate-700 hover:border-slate-600 transition-colors flex items-center gap-1.5"
+          >
+            <i class="pi pi-file text-xs"></i>
+            <span>Export Report</span>
+          </button>
           <button
             type="button"
             data-testid="complete-session-button"
@@ -1059,6 +1107,18 @@ const tlsSummary = computed(() => {
                         <span class="text-xs font-semibold text-slate-200">{{ obs.description }}</span>
                         <span class="text-[9px] font-mono text-slate-500 shrink-0">{{ obs.category }}</span>
                       </div>
+                      <div class="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          :data-testid="'promote-observation-' + obs.id"
+                          :disabled="currentSession?.state === 'ABORTED'"
+                          @click="handlePromoteObservation(obs)"
+                          class="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 text-[10px] font-mono font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                        >
+                          <i class="pi pi-arrow-up-right text-[9px]"></i>
+                          <span>Promote to Finding</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1387,5 +1447,12 @@ const tlsSummary = computed(() => {
         </section>
       </div>
     </main>
+
+    <!-- Findings Curation Drawer -->
+    <FindingsDrawer
+      :is-open="isFindingsDrawerOpen"
+      @close="isFindingsDrawerOpen = false"
+      ref="findingsDrawerRef"
+    />
   </div>
 </template>

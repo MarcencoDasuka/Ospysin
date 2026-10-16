@@ -237,6 +237,11 @@ describe('Screen 3: Session Workspace View (SessionWorkspaceView.vue)', () => {
           path: '/sessions/:id',
           name: 'session-workspace',
           component: SessionWorkspaceView
+        },
+        {
+          path: '/sessions/:id/report',
+          name: 'session-report',
+          component: { template: '<div>Report View</div>' }
         }
       ]
     })
@@ -270,6 +275,9 @@ describe('Screen 3: Session Workspace View (SessionWorkspaceView.vue)', () => {
       }
       if (url.includes('/tools')) {
         return { data: mockTools } as any
+      }
+      if (url.includes('/sessions/test-session-123/findings')) {
+        return { data: [] } as any
       }
       if (url.includes('/sessions/test-session-123')) {
         return {
@@ -914,6 +922,351 @@ describe('Screen 3: Session Workspace View (SessionWorkspaceView.vue)', () => {
     // Ensure strings are safely rendered as text
     expect(wrapper.text()).toContain(maliciousAdvisory)
     expect(wrapper.text()).toContain(maliciousChat)
+  })
+
+  describe('Phase 17: Findings Curation & Evidence Drawer Integration', () => {
+    it('toggle-findings-drawer-button toggles drawer visibility and displays active findings count', async () => {
+      const wrapper = await createWrapper()
+      const workspaceStore = useWorkspaceStore()
+      workspaceStore.findings = [
+        {
+          id: 'f-1',
+          sessionId: 'test-session-123',
+          observationId: null,
+          title: 'Missing CSP',
+          description: 'No CSP',
+          severity: 'MEDIUM',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+      await wrapper.vm.$nextTick()
+
+      const toggleBtn = wrapper.find('[data-testid="toggle-findings-drawer-button"]')
+      expect(toggleBtn.exists()).toBe(true)
+      expect(toggleBtn.text()).toContain('Findings (1)')
+
+      // Drawer initially closed
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(false)
+
+      // Open drawer
+      await toggleBtn.trigger('click')
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(true)
+
+      // Close drawer via close button
+      const closeBtn = wrapper.find('[data-testid="close-findings-drawer-button"]')
+      await closeBtn.trigger('click')
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(false)
+    })
+
+    it('open-report-view-button navigates to /sessions/:id/report', async () => {
+      const wrapper = await createWrapper()
+      const exportBtn = wrapper.find('[data-testid="open-report-view-button"]')
+      expect(exportBtn.exists()).toBe(true)
+
+      await exportBtn.trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.path).toBe('/sessions/test-session-123/report')
+    })
+
+    it('promote observation button opens drawer with pre-filled finding form and creates finding', async () => {
+      const wrapper = await createWrapper()
+      const workspaceStore = useWorkspaceStore()
+      const createFindingSpy = vi.spyOn(workspaceStore, 'createFinding').mockResolvedValue({
+        id: 'f-promoted',
+        sessionId: 'test-session-123',
+        observationId: 'obs-1',
+        title: '[SECURITY_HEADERS] Missing Content-Security-Policy header',
+        description: 'Missing Content-Security-Policy header',
+        severity: 'MEDIUM',
+        confidence: 'FIRM',
+        status: 'OPEN',
+        rejectionReason: null,
+        remediation: null,
+        evidence: [],
+        createdAt: '2026-10-09T01:41:00Z',
+        updatedAt: '2026-10-09T01:41:00Z'
+      })
+
+      // Switch to step-http-1 where obs-1 is located
+      await wrapper.find('[data-testid="step-tab-step-http-1"]').trigger('click')
+      await flushPromises()
+
+      // Click promote observation button on obs-1
+      const promoteBtn = wrapper.find('[data-testid="promote-observation-obs-1"]')
+      expect(promoteBtn.exists()).toBe(true)
+      await promoteBtn.trigger('click')
+
+      // Drawer is opened
+      const drawer = wrapper.find('[data-testid="findings-drawer"]')
+      expect(drawer.exists()).toBe(true)
+
+      // Form is displayed with pre-filled values
+      const form = wrapper.find('[data-testid="finding-create-form"]')
+      expect(form.exists()).toBe(true)
+
+      const titleInput = wrapper.find('[data-testid="finding-title-input"]')
+      expect((titleInput.element as HTMLInputElement).value).toContain('[SECURITY_HEADERS]')
+
+      const descInput = wrapper.find('[data-testid="finding-description-input"]')
+      expect((descInput.element as HTMLTextAreaElement).value).toBe('Missing Content-Security-Policy header')
+
+      const submitBtn = wrapper.find('[data-testid="finding-submit-button"]')
+      await submitBtn.trigger('click')
+      await flushPromises()
+
+      expect(createFindingSpy).toHaveBeenCalledWith(
+        'test-session-123',
+        expect.objectContaining({
+          observationId: 'obs-1',
+          severity: 'MEDIUM',
+          confidence: 'FIRM'
+        })
+      )
+    })
+
+    it('supports creating manual finding, confirming, rejecting with reason, and attaching evidence', async () => {
+      const wrapper = await createWrapper()
+      const workspaceStore = useWorkspaceStore()
+
+      // Open drawer
+      await wrapper.find('[data-testid="toggle-findings-drawer-button"]').trigger('click')
+
+      // 1. Manual finding creation
+      const newFindingBtn = wrapper.find('[data-testid="new-finding-button"]')
+      await newFindingBtn.trigger('click')
+
+      await wrapper.find('[data-testid="finding-title-input"]').setValue('Manual Finding Title')
+      await wrapper.find('[data-testid="finding-description-input"]').setValue('Manual Finding Description')
+      await wrapper.find('[data-testid="finding-remediation-input"]').setValue('Remediation Advice')
+
+      const createSpy = vi.spyOn(workspaceStore, 'createFinding').mockImplementation(async (_sId, payload) => {
+        const item = {
+          id: 'f-manual-1',
+          sessionId: 'test-session-123',
+          observationId: payload.observationId || null,
+          title: payload.title,
+          description: payload.description,
+          severity: payload.severity,
+          confidence: payload.confidence || 'TENTATIVE',
+          status: 'OPEN' as const,
+          rejectionReason: null,
+          remediation: payload.remediation || null,
+          evidence: [],
+          createdAt: '2026-10-09T01:42:00Z',
+          updatedAt: '2026-10-09T01:42:00Z'
+        }
+        workspaceStore.findings.push(item)
+        return item
+      })
+
+      await wrapper.find('[data-testid="finding-submit-button"]').trigger('click')
+      await flushPromises()
+      expect(createSpy).toHaveBeenCalled()
+
+      // 2. Confirm finding
+      const updateSpy = vi.spyOn(workspaceStore, 'updateFinding').mockImplementation(async (_sId, fId, payload) => {
+        const idx = workspaceStore.findings.findIndex((f) => f.id === fId)
+        if (idx !== -1) {
+          workspaceStore.findings[idx] = {
+            ...workspaceStore.findings[idx],
+            ...payload
+          } as any
+        }
+        return workspaceStore.findings[idx]
+      })
+
+      const confirmBtn = wrapper.find('[data-testid="confirm-finding-f-manual-1"]')
+      expect(confirmBtn.exists()).toBe(true)
+      await confirmBtn.trigger('click')
+      await flushPromises()
+      expect(updateSpy).toHaveBeenCalledWith('test-session-123', 'f-manual-1', { status: 'CONFIRMED' })
+
+      // 3. Reject finding with reason
+      const rejectToggle = wrapper.find('[data-testid="reject-finding-toggle-f-manual-1"]')
+      await rejectToggle.trigger('click')
+
+      const reasonInput = wrapper.find('[data-testid="reject-reason-input-f-manual-1"]')
+      expect(reasonInput.exists()).toBe(true)
+
+      const rejectSubmit = wrapper.find('[data-testid="reject-finding-submit-f-manual-1"]')
+      expect((rejectSubmit.element as HTMLButtonElement).disabled).toBe(true)
+
+      await reasonInput.setValue('Confirmed non-issue behind internal reverse proxy')
+      expect((rejectSubmit.element as HTMLButtonElement).disabled).toBe(false)
+
+      await rejectSubmit.trigger('click')
+      await flushPromises()
+
+      expect(updateSpy).toHaveBeenCalledWith('test-session-123', 'f-manual-1', {
+        status: 'REJECTED',
+        rejectionReason: 'Confirmed non-issue behind internal reverse proxy'
+      })
+
+      // 4. Attach evidence to finding
+      // Reset finding to OPEN for testing evidence attachment
+      workspaceStore.findings = [
+        {
+          id: 'f-evidence-test',
+          sessionId: 'test-session-123',
+          observationId: null,
+          title: 'Evidence Test Finding',
+          description: 'Desc',
+          severity: 'HIGH',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+      await wrapper.vm.$nextTick()
+
+      const addEvidenceSpy = vi.spyOn(workspaceStore, 'addEvidence').mockResolvedValue({
+        id: 'ev-new',
+        findingId: 'f-evidence-test',
+        resultId: 'res-1',
+        executionId: 'step-http-1',
+        toolId: 'http_headers',
+        snippet: 'Server: nginx/1.24.0',
+        createdAt: '2026-10-09T01:45:00Z'
+      })
+
+      const attachToggle = wrapper.find('[data-testid="add-evidence-toggle-f-evidence-test"]')
+      expect(attachToggle.exists()).toBe(true)
+      await attachToggle.trigger('click')
+
+      const snippetInput = wrapper.find('[data-testid="evidence-snippet-input-f-evidence-test"]')
+      expect(snippetInput.exists()).toBe(true)
+      await snippetInput.setValue('Server: nginx/1.24.0')
+
+      const evidenceSubmit = wrapper.find('[data-testid="evidence-submit-f-evidence-test"]')
+      await evidenceSubmit.trigger('click')
+      await flushPromises()
+
+      expect(addEvidenceSpy).toHaveBeenCalledWith('test-session-123', 'f-evidence-test', {
+        resultId: expect.any(String),
+        snippet: 'Server: nginx/1.24.0'
+      })
+    })
+
+    it('resets transient form state and closes drawer when switching sessions or closing drawer', async () => {
+      const wrapper = await createWrapper()
+
+      // Open drawer
+      await wrapper.find('[data-testid="toggle-findings-drawer-button"]').trigger('click')
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(true)
+
+      // Open manual finding create form and type title
+      await wrapper.find('[data-testid="new-finding-button"]').trigger('click')
+      expect(wrapper.find('[data-testid="finding-create-form"]').exists()).toBe(true)
+      await wrapper.find('[data-testid="finding-title-input"]').setValue('Draft Title In Drawer')
+
+      // Close drawer
+      await wrapper.find('[data-testid="close-findings-drawer-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(false)
+
+      // Re-open drawer: create form must be reset and hidden
+      await wrapper.find('[data-testid="toggle-findings-drawer-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="finding-create-form"]').exists()).toBe(false)
+
+      // Route change to another session should close the drawer
+      await router.push('/sessions/test-session-456')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="findings-drawer"]').exists()).toBe(false)
+    })
+
+    it('disables + Attach Evidence button when active step is running or lacks result/execution ID', async () => {
+      const wrapper = await createWrapper()
+      const workspaceStore = useWorkspaceStore()
+
+      workspaceStore.findings = [
+        {
+          id: 'f-evidence-guard',
+          sessionId: 'test-session-123',
+          observationId: null,
+          title: 'Evidence Guard Finding',
+          description: 'Desc',
+          severity: 'HIGH',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      // Set activeStepDetail to RUNNING (not COMPLETED)
+      workspaceStore.activeStepDetail = {
+        ...mockHttpStepDetail,
+        status: 'RUNNING'
+      }
+
+      await wrapper.find('[data-testid="toggle-findings-drawer-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const attachBtn = wrapper.find('[data-testid="add-evidence-toggle-f-evidence-guard"]')
+      expect(attachBtn.exists()).toBe(true)
+      expect((attachBtn.element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('supports marking finding as FALSE_POSITIVE which excludes it from active findings', async () => {
+      const wrapper = await createWrapper()
+      const workspaceStore = useWorkspaceStore()
+
+      workspaceStore.findings = [
+        {
+          id: 'f-fp-test',
+          sessionId: 'test-session-123',
+          observationId: null,
+          title: 'FP Test Finding',
+          description: 'Desc',
+          severity: 'LOW',
+          confidence: 'TENTATIVE',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      const updateSpy = vi.spyOn(workspaceStore, 'updateFinding').mockImplementation(async (_sId, fId, payload) => {
+        const idx = workspaceStore.findings.findIndex((f) => f.id === fId)
+        if (idx !== -1) {
+          workspaceStore.findings[idx] = {
+            ...workspaceStore.findings[idx],
+            ...payload
+          } as any
+        }
+        return workspaceStore.findings[idx]
+      })
+
+      await wrapper.find('[data-testid="toggle-findings-drawer-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const fpBtn = wrapper.find('[data-testid="fp-finding-f-fp-test"]')
+      expect(fpBtn.exists()).toBe(true)
+      await fpBtn.trigger('click')
+      await flushPromises()
+
+      expect(updateSpy).toHaveBeenCalledWith('test-session-123', 'f-fp-test', { status: 'FALSE_POSITIVE' })
+      expect(workspaceStore.activeFindingsCount).toBe(0)
+    })
   })
 })
 

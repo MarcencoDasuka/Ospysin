@@ -14,7 +14,12 @@ import type {
   ProblemDetail,
   LlmCommentPayload,
   LlmChatMessage,
-  LlmAsyncAcceptedResponse
+  LlmAsyncAcceptedResponse,
+  Finding,
+  CreateFindingRequest,
+  UpdateFindingRequest,
+  CreateEvidenceRequest,
+  EvidenceItem
 } from '@/api/types'
 
 export interface ToolTierGroup {
@@ -38,6 +43,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const sseEvents = shallowRef<WorkspaceSseEvent[]>([])
   const sseConnectionState = ref<SseConnectionState>('DISCONNECTED')
   const policyAlertMessage = ref<string | null>(null)
+
+  // Findings Curation State
+  const findings = ref<Finding[]>([])
+  const loadingFindings = ref(false)
+  const submittingFinding = ref(false)
 
   // LLM Advisory & Tactical Chat State
   const latestAdvisory = ref<LlmCommentPayload | null>(null)
@@ -86,6 +96,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
     }
     return null
+  })
+
+  const activeFindingsCount = computed<number>(() => {
+    return Array.isArray(findings.value)
+      ? findings.value.filter((f) => f.status !== 'REJECTED' && f.status !== 'FALSE_POSITIVE').length
+      : 0
   })
 
   // SSE Helper with 500 max event buffer and new array assignment for shallowRef
@@ -646,6 +662,146 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
   }
 
+  async function fetchFindings(sessionId: string): Promise<Finding[]> {
+    loadingFindings.value = true
+    error.value = null
+    try {
+      const response = await http.get<Finding[]>(`/sessions/${sessionId}/findings`)
+      findings.value = response.data
+      return response.data
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Fetch Findings',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to retrieve session findings'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    } finally {
+      loadingFindings.value = false
+    }
+  }
+
+  async function createFinding(sessionId: string, payload: CreateFindingRequest): Promise<Finding> {
+    submittingFinding.value = true
+    error.value = null
+    try {
+      const response = await http.post<Finding>(`/sessions/${sessionId}/findings`, payload)
+      const created = response.data
+      findings.value.push(created)
+      const sessionsStore = useSessionsStore()
+      if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
+        sessionsStore.currentSession.findingCount = activeFindingsCount.value
+      }
+      return created
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Create Finding',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to create finding'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    } finally {
+      submittingFinding.value = false
+    }
+  }
+
+  async function updateFinding(sessionId: string, findingId: string, payload: UpdateFindingRequest): Promise<Finding> {
+    submittingFinding.value = true
+    error.value = null
+    try {
+      const response = await http.patch<Finding>(`/sessions/${sessionId}/findings/${findingId}`, payload)
+      const updated = response.data
+      const idx = findings.value.findIndex((f) => f.id === findingId)
+      if (idx !== -1) {
+        findings.value[idx] = updated
+      } else {
+        findings.value.push(updated)
+      }
+      const sessionsStore = useSessionsStore()
+      if (sessionsStore.currentSession && sessionsStore.currentSession.id === sessionId) {
+        sessionsStore.currentSession.findingCount = activeFindingsCount.value
+      }
+      return updated
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Update Finding',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to update finding'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    } finally {
+      submittingFinding.value = false
+    }
+  }
+
+  async function addEvidence(sessionId: string, findingId: string, payload: CreateEvidenceRequest): Promise<EvidenceItem> {
+    submittingFinding.value = true
+    error.value = null
+    try {
+      const response = await http.post<EvidenceItem>(`/sessions/${sessionId}/findings/${findingId}/evidence`, payload)
+      const evidenceItem = response.data
+      const finding = findings.value.find((f) => f.id === findingId)
+      if (finding) {
+        if (!finding.evidence) {
+          finding.evidence = []
+        }
+        finding.evidence.push(evidenceItem)
+      }
+      return evidenceItem
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Attach Evidence',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to attach evidence'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    } finally {
+      submittingFinding.value = false
+    }
+  }
+
+  async function fetchReportHtml(sessionId: string): Promise<string> {
+    error.value = null
+    try {
+      const response = await http.get<string>(`/sessions/${sessionId}/report`, {
+        responseType: 'text'
+      })
+      return response.data
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.problem
+        throw err
+      }
+      const fallback: ProblemDetail = {
+        title: 'Failed to Fetch Report',
+        status: 500,
+        detail: err instanceof Error ? err.message : 'Unable to retrieve session report'
+      }
+      error.value = fallback
+      throw new ApiError(fallback)
+    }
+  }
+
   function resetWorkspace(): void {
     disconnectSse()
     steps.value = []
@@ -659,6 +815,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     chatMessages.value = []
     requestingComment.value = false
     sendingChat.value = false
+    findings.value = []
+    loadingFindings.value = false
+    submittingFinding.value = false
   }
 
   return {
@@ -679,12 +838,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     loadingStepDetail,
     triggeringToolId,
     error,
+    findings,
+    loadingFindings,
+    submittingFinding,
 
     // Getters
     toolsByTier,
     hasActiveExecution,
     latestCompletedHttpHeadersStepId,
     latestCompletedTechDetectStepId,
+    activeFindingsCount,
 
     // Actions
     appendSseEvent,
@@ -700,6 +863,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     clearSseEvents,
     dismissPolicyAlert,
     clearError,
-    resetWorkspace
+    resetWorkspace,
+    fetchFindings,
+    createFinding,
+    updateFinding,
+    addEvidence,
+    fetchReportHtml
   }
 })

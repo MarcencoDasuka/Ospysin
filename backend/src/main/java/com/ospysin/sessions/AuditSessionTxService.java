@@ -187,7 +187,9 @@ public class AuditSessionTxService {
         ));
 
         long stepCount = toolExecutionRepository.countBySessionId(id);
-        long findingCount = findingRepository.countBySessionIdAndStatusNot(id, FindingStatus.REJECTED);
+        long findingCount = findingRepository.countBySessionIdAndStatusNotIn(
+                id, List.of(FindingStatus.REJECTED, FindingStatus.FALSE_POSITIVE)
+        );
 
         return new SessionResponse(
                 session.getId(),
@@ -251,7 +253,9 @@ public class AuditSessionTxService {
         ));
 
         long stepCount = toolExecutionRepository.countBySessionId(id);
-        long findingCount = findingRepository.countBySessionIdAndStatusNot(id, FindingStatus.REJECTED);
+        long findingCount = findingRepository.countBySessionIdAndStatusNotIn(
+                id, List.of(FindingStatus.REJECTED, FindingStatus.FALSE_POSITIVE)
+        );
 
         return new SessionResponse(
                 session.getId(),

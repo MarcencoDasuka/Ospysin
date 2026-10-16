@@ -14,12 +14,18 @@ public interface FindingRepository extends JpaRepository<Finding, UUID> {
 
     List<Finding> findBySessionId(UUID sessionId);
 
+    List<Finding> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
+
+    java.util.Optional<Finding> findByIdAndSessionId(UUID id, UUID sessionId);
+
     List<Finding> findBySessionIdAndStatusNot(UUID sessionId, FindingStatus excludedStatus);
 
     long countBySessionId(UUID sessionId);
 
     long countBySessionIdAndStatusNot(UUID sessionId, FindingStatus excludedStatus);
 
-    @Query("SELECT f.session.id, COUNT(f) FROM Finding f WHERE f.session.id IN :sessionIds AND f.status <> com.ospysin.findings.FindingStatus.REJECTED GROUP BY f.session.id")
+    long countBySessionIdAndStatusNotIn(UUID sessionId, Collection<FindingStatus> excludedStatuses);
+
+    @Query("SELECT f.session.id, COUNT(f) FROM Finding f WHERE f.session.id IN :sessionIds AND f.status NOT IN (com.ospysin.findings.FindingStatus.REJECTED, com.ospysin.findings.FindingStatus.FALSE_POSITIVE) GROUP BY f.session.id")
     List<Object[]> countFindingsBySessionIds(@Param("sessionIds") Collection<UUID> sessionIds);
 }

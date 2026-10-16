@@ -111,6 +111,7 @@ export interface ObservationDto {
 
 export interface StepDetailResponse {
   executionId: string
+  resultId?: string | null
   toolId: string
   status: ExecutionStatus
   durationMs: number | null
@@ -122,6 +123,9 @@ export interface StepDetailResponse {
   startedAt: string | null
   endedAt: string | null
 }
+
+export type StepDetail = StepDetailResponse
+
 
 export interface ParsedCookieView {
   name: string
@@ -179,4 +183,70 @@ export interface LlmChatMessage {
   content: string
   timestamp: string
 }
+
+export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
+export type FindingConfidence = 'CERTAIN' | 'FIRM' | 'TENTATIVE'
+export type FindingStatus = 'OPEN' | 'CONFIRMED' | 'FALSE_POSITIVE' | 'REJECTED'
+
+export interface EvidenceItem {
+  id: string
+  findingId: string
+  resultId: string
+  executionId: string
+  toolId: string
+  snippet: string
+  createdAt: string
+}
+
+export interface Finding {
+  id: string
+  sessionId: string
+  observationId: string | null
+  title: string
+  description: string
+  severity: FindingSeverity
+  confidence: FindingConfidence
+  status: FindingStatus
+  rejectionReason: string | null
+  remediation: string | null
+  evidence: EvidenceItem[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateFindingRequest {
+  observationId?: string | null
+  title: string
+  description: string
+  severity: FindingSeverity
+  confidence?: FindingConfidence
+  remediation?: string | null
+}
+
+export interface UpdateFindingRequest {
+  title?: string
+  description?: string
+  severity?: FindingSeverity
+  confidence?: FindingConfidence
+  status?: FindingStatus
+  rejectionReason?: string | null
+  remediation?: string | null
+}
+
+export interface CreateEvidenceRequest {
+  resultId: string
+  snippet: string
+}
+
+export interface SessionObservation {
+  id: string
+  executionId: string
+  resultId: string
+  toolId: string
+  category: string
+  description: string
+  severityHeuristic: SeverityHeuristic
+  detectedAt: string
+}
+
 

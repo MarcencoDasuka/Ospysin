@@ -467,8 +467,11 @@ public class ToolExecutionTxService {
                     .toList();
         }
 
+        UUID resultId = resultOpt.map(ToolResult::getId).orElse(null);
+
         return new StepDetailResponse(
                 execution.getId(),
+                resultId,
                 execution.getToolId(),
                 execution.getStatus(),
                 execution.getDurationMs(),

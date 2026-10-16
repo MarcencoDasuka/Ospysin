@@ -604,4 +604,262 @@ describe('Workspace Store (useWorkspaceStore)', () => {
     expect(store.requestingComment).toBe(false)
     expect(store.sendingChat).toBe(false)
   })
+
+  describe('Phase 17: Findings Curation & Report Actions', () => {
+    it('fetchFindings retrieves session findings and populates findings state', async () => {
+      const mockFindings = [
+        {
+          id: 'f-1',
+          sessionId: 'session-123',
+          observationId: null,
+          title: 'Missing CSP',
+          description: 'No Content-Security-Policy header',
+          severity: 'MEDIUM',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: 'Add CSP header',
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      vi.spyOn(http, 'get').mockResolvedValueOnce({ data: mockFindings } as any)
+
+      const store = useWorkspaceStore()
+      const result = await store.fetchFindings('session-123')
+
+      expect(http.get).toHaveBeenCalledWith('/sessions/session-123/findings')
+      expect(result).toEqual(mockFindings)
+      expect(store.findings).toEqual(mockFindings)
+      expect(store.activeFindingsCount).toBe(1)
+    })
+
+    it('createFinding appends to findings and syncs sessionsStore.currentSession.findingCount', async () => {
+      const sessionsStore = useSessionsStore()
+      sessionsStore.currentSession = {
+        id: 'session-123',
+        targetUrl: 'https://example.com',
+        mode: 'PUBLIC',
+        state: 'ACTIVE',
+        scopeAcknowledged: true,
+        scopeAckVersion: '1.0.0',
+        scopeAckHash: 'hash',
+        scopeAckTimestamp: '2026-10-09T01:40:00Z',
+        stepCount: 1,
+        findingCount: 0,
+        createdAt: '2026-10-09T01:40:00Z',
+        updatedAt: '2026-10-09T01:40:00Z'
+      }
+
+      const newFinding = {
+        id: 'f-2',
+        sessionId: 'session-123',
+        observationId: 'obs-1',
+        title: 'HSTS Not Enforced',
+        description: 'Server lacks HSTS header',
+        severity: 'HIGH' as const,
+        confidence: 'FIRM' as const,
+        status: 'OPEN' as const,
+        rejectionReason: null,
+        remediation: null,
+        evidence: [],
+        createdAt: '2026-10-09T01:41:00Z',
+        updatedAt: '2026-10-09T01:41:00Z'
+      }
+
+      vi.spyOn(http, 'post').mockResolvedValueOnce({ data: newFinding } as any)
+
+      const store = useWorkspaceStore()
+      const created = await store.createFinding('session-123', {
+        observationId: 'obs-1',
+        title: 'HSTS Not Enforced',
+        description: 'Server lacks HSTS header',
+        severity: 'HIGH'
+      })
+
+      expect(http.post).toHaveBeenCalledWith('/sessions/session-123/findings', {
+        observationId: 'obs-1',
+        title: 'HSTS Not Enforced',
+        description: 'Server lacks HSTS header',
+        severity: 'HIGH'
+      })
+      expect(created).toEqual(newFinding)
+      expect(store.findings).toContainEqual(newFinding)
+      expect(sessionsStore.currentSession.findingCount).toBe(1)
+    })
+
+    it('updateFinding updates matching finding and recalculates active count on REJECTED', async () => {
+      const sessionsStore = useSessionsStore()
+      sessionsStore.currentSession = {
+        id: 'session-123',
+        targetUrl: 'https://example.com',
+        mode: 'PUBLIC',
+        state: 'ACTIVE',
+        scopeAcknowledged: true,
+        scopeAckVersion: '1.0.0',
+        scopeAckHash: 'hash',
+        scopeAckTimestamp: '2026-10-09T01:40:00Z',
+        stepCount: 1,
+        findingCount: 1,
+        createdAt: '2026-10-09T01:40:00Z',
+        updatedAt: '2026-10-09T01:40:00Z'
+      }
+
+      const store = useWorkspaceStore()
+      store.findings = [
+        {
+          id: 'f-1',
+          sessionId: 'session-123',
+          observationId: null,
+          title: 'Missing CSP',
+          description: 'Desc',
+          severity: 'MEDIUM',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      const updatedFinding = {
+        ...store.findings[0],
+        status: 'REJECTED' as const,
+        rejectionReason: 'Protected by external WAF'
+      }
+
+      vi.spyOn(http, 'patch').mockResolvedValueOnce({ data: updatedFinding } as any)
+
+      await store.updateFinding('session-123', 'f-1', {
+        status: 'REJECTED',
+        rejectionReason: 'Protected by external WAF'
+      })
+
+      expect(http.patch).toHaveBeenCalledWith('/sessions/session-123/findings/f-1', {
+        status: 'REJECTED',
+        rejectionReason: 'Protected by external WAF'
+      })
+      expect(store.findings[0].status).toBe('REJECTED')
+      expect(store.activeFindingsCount).toBe(0)
+      expect(sessionsStore.currentSession.findingCount).toBe(0)
+    })
+
+    it('updateFinding transitioning status to FALSE_POSITIVE decrements active findings and session count', async () => {
+      const sessionsStore = useSessionsStore()
+      sessionsStore.currentSession = {
+        id: 'session-123',
+        targetUrl: 'https://example.com',
+        mode: 'PUBLIC',
+        state: 'ACTIVE',
+        scopeAcknowledged: true,
+        scopeAckVersion: '1.0.0',
+        scopeAckHash: 'hash',
+        scopeAckTimestamp: '2026-10-09T01:40:00Z',
+        stepCount: 1,
+        findingCount: 1,
+        createdAt: '2026-10-09T01:40:00Z',
+        updatedAt: '2026-10-09T01:40:00Z'
+      }
+
+      const store = useWorkspaceStore()
+      store.findings = [
+        {
+          id: 'f-1',
+          sessionId: 'session-123',
+          observationId: null,
+          title: 'Missing CSP',
+          description: 'Desc',
+          severity: 'MEDIUM',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      const updatedFinding = {
+        ...store.findings[0],
+        status: 'FALSE_POSITIVE' as const
+      }
+
+      vi.spyOn(http, 'patch').mockResolvedValueOnce({ data: updatedFinding } as any)
+
+      await store.updateFinding('session-123', 'f-1', {
+        status: 'FALSE_POSITIVE'
+      })
+
+      expect(http.patch).toHaveBeenCalledWith('/sessions/session-123/findings/f-1', {
+        status: 'FALSE_POSITIVE'
+      })
+      expect(store.findings[0].status).toBe('FALSE_POSITIVE')
+      expect(store.activeFindingsCount).toBe(0)
+      expect(sessionsStore.currentSession.findingCount).toBe(0)
+    })
+
+    it('addEvidence attaches evidence to the matching finding', async () => {
+      const store = useWorkspaceStore()
+      store.findings = [
+        {
+          id: 'f-1',
+          sessionId: 'session-123',
+          observationId: null,
+          title: 'Missing CSP',
+          description: 'Desc',
+          severity: 'MEDIUM',
+          confidence: 'FIRM',
+          status: 'OPEN',
+          rejectionReason: null,
+          remediation: null,
+          evidence: [],
+          createdAt: '2026-10-09T01:40:00Z',
+          updatedAt: '2026-10-09T01:40:00Z'
+        }
+      ]
+
+      const evidenceItem = {
+        id: 'ev-1',
+        findingId: 'f-1',
+        resultId: 'res-1',
+        executionId: 'exec-1',
+        toolId: 'http_headers',
+        snippet: 'Strict-Transport-Security: max-age=0',
+        createdAt: '2026-10-09T01:42:00Z'
+      }
+
+      vi.spyOn(http, 'post').mockResolvedValueOnce({ data: evidenceItem } as any)
+
+      const result = await store.addEvidence('session-123', 'f-1', {
+        resultId: 'res-1',
+        snippet: 'Strict-Transport-Security: max-age=0'
+      })
+
+      expect(http.post).toHaveBeenCalledWith('/sessions/session-123/findings/f-1/evidence', {
+        resultId: 'res-1',
+        snippet: 'Strict-Transport-Security: max-age=0'
+      })
+      expect(result).toEqual(evidenceItem)
+      expect(store.findings[0].evidence).toHaveLength(1)
+      expect(store.findings[0].evidence[0]).toEqual(evidenceItem)
+    })
+
+    it('fetchReportHtml retrieves standalone HTML document as text', async () => {
+      const rawHtml = '<!DOCTYPE html><html><body>Report</body></html>'
+      vi.spyOn(http, 'get').mockResolvedValueOnce({ data: rawHtml } as any)
+
+      const store = useWorkspaceStore()
+      const result = await store.fetchReportHtml('session-123')
+
+      expect(http.get).toHaveBeenCalledWith('/sessions/session-123/report', {
+        responseType: 'text'
+      })
+      expect(result).toBe(rawHtml)
+    })
+  })
 })
