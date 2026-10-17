@@ -22,6 +22,9 @@ import java.util.regex.Pattern;
 public class HttpHeadersTool implements OspysinTool {
 
     public static final String TOOL_ID = "http_headers";
+    public static final long WIRE_CAP_BYTES = 1024 * 1024L; // 1 MB
+    public static final long DECOMPRESSED_CAP_BYTES = 5 * 1024 * 1024L; // 5 MB
+    public static final int READ_TIMEOUT_MS = 10_000; // 10s
     private static final Pattern VERSION_PATTERN = Pattern.compile(".*(/|\\s)\\d+(\\.\\d+)*.*|.*\\b\\d+\\.\\d+.*");
 
     private final PinnedHttpClient pinnedHttpClient;
@@ -113,7 +116,10 @@ public class HttpHeadersTool implements OspysinTool {
                 pinnedIp,
                 followRedirects,
                 context.mode(),
-                context.scopeAsset()
+                context.scopeAsset(),
+                WIRE_CAP_BYTES,
+                DECOMPRESSED_CAP_BYTES,
+                READ_TIMEOUT_MS
         );
 
         Map<String, Object> parsedData = new LinkedHashMap<>();

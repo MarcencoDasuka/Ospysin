@@ -152,10 +152,27 @@ async function handleSendChat() {
   }
 }
 
+const toolOrderMap = computed<Map<string, string>>(() => {
+  const map = new Map<string, string>()
+  let index = 1
+  for (const tierGroup of toolsByTier.value) {
+    for (const tool of tierGroup.tools) {
+      map.set(tool.id, String(index).padStart(2, '0'))
+      index++
+    }
+  }
+  return map
+})
+
+function getToolOrderNumber(toolId: string): string {
+  return toolOrderMap.value.get(toolId) || '00'
+}
+
 let isUnmounted = false
 
 async function loadWorkspaceData(id: string) {
   if (!id) return
+  workspaceStore.resetWorkspace()
   try {
     await sessionsStore.fetchSessionById(id)
     if (isUnmounted || sessionId.value !== id) return
@@ -192,7 +209,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   isUnmounted = true
-  workspaceStore.disconnectSse()
+  workspaceStore.resetWorkspace()
 })
 
 async function handleComplete() {
@@ -576,7 +593,7 @@ const tlsSummary = computed(() => {
       <div class="flex-1 p-4 grid grid-cols-12 gap-4 overflow-y-auto">
         <!-- 1. Left Panel: Categorized 15-Tool Catalog (3 cols) -->
         <section
-          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col min-h-[500px]"
+          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col min-h-[500px] lg:h-[calc(100vh-14rem)] lg:max-h-[780px] overflow-hidden"
         >
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
@@ -607,7 +624,15 @@ const tlsSummary = computed(() => {
                   class="p-2.5 rounded border border-slate-800/80 bg-slate-950/60 hover:border-slate-700/80 transition-colors flex flex-col gap-1.5"
                 >
                   <div class="flex items-center justify-between gap-1">
-                    <span class="text-xs font-semibold text-slate-200 truncate">{{ tool.name }}</span>
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span
+                        :data-testid="'tool-order-badge-' + tool.id"
+                        class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 shrink-0"
+                      >
+                        #{{ getToolOrderNumber(tool.id) }}
+                      </span>
+                      <span class="text-xs font-semibold text-slate-200 truncate">{{ tool.name }}</span>
+                    </div>
                     <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
                       {{ tool.category }}
                     </span>
@@ -654,7 +679,7 @@ const tlsSummary = computed(() => {
 
         <!-- 2. Center Panel: Results & Execution History (6 cols) -->
         <section
-          class="col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col min-h-[500px]"
+          class="col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col min-h-[500px] lg:h-[calc(100vh-14rem)] lg:max-h-[780px] overflow-hidden"
         >
           <!-- Center Panel Header: Step Timeline -->
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
@@ -668,7 +693,7 @@ const tlsSummary = computed(() => {
           <div
             v-if="steps.length > 0"
             data-testid="step-timeline"
-            class="flex items-center gap-1.5 overflow-x-auto py-2 border-b border-slate-800/80 mb-3"
+            class="flex flex-wrap items-center gap-1.5 max-h-32 overflow-y-auto py-2 border-b border-slate-800/80 mb-3 shrink-0"
           >
             <button
               v-for="(step, idx) in steps"
@@ -1145,7 +1170,7 @@ const tlsSummary = computed(() => {
         <!-- 3. Right Panel: AI Advisor (3 cols) -->
         <section
           data-testid="advisor-panel"
-          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col min-h-[500px]"
+          class="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col min-h-[500px] lg:h-[calc(100vh-14rem)] lg:max-h-[780px] overflow-hidden"
         >
           <!-- Advisor Header -->
           <div class="flex items-center justify-between pb-2 border-b border-slate-800 shrink-0">
@@ -1168,9 +1193,9 @@ const tlsSummary = computed(() => {
           </div>
 
           <!-- Advisor Body Container -->
-          <div class="flex-1 flex flex-col gap-3 pt-3 overflow-hidden">
+          <div class="flex-1 min-h-0 flex flex-col gap-3 pt-3 overflow-hidden">
             <!-- Top Section: Commentary & Suggested Tool (Scrollable if needed) -->
-            <div class="space-y-3 overflow-y-auto max-h-[45%] pr-1">
+            <div class="shrink-0 space-y-3 overflow-y-auto max-h-[42%] pr-1">
               <!-- Latest Commentary Card -->
               <div
                 data-testid="advisor-comment-card"
@@ -1241,7 +1266,7 @@ const tlsSummary = computed(() => {
             </div>
 
             <!-- Bottom Section: Tactical Chat (Flex-1) -->
-            <div class="flex-1 flex flex-col rounded bg-slate-950/60 border border-slate-800 p-2.5 min-h-[220px] overflow-hidden">
+            <div class="flex-1 min-h-0 flex flex-col rounded bg-slate-950/60 border border-slate-800 p-2.5 overflow-hidden">
               <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800/80 shrink-0">
                 <span class="text-[11px] font-bold uppercase font-mono text-slate-300 tracking-wider flex items-center gap-1">
                   <i class="pi pi-comments text-slate-400"></i>
@@ -1257,7 +1282,7 @@ const tlsSummary = computed(() => {
               <div
                 ref="chatListEl"
                 data-testid="advisor-chat-list"
-                class="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs"
+                class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 font-mono text-xs"
               >
                 <div
                   v-if="chatMessages.length === 0"

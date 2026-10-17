@@ -1267,6 +1267,58 @@ describe('Screen 3: Session Workspace View (SessionWorkspaceView.vue)', () => {
       expect(updateSpy).toHaveBeenCalledWith('test-session-123', 'f-fp-test', { status: 'FALSE_POSITIVE' })
       expect(workspaceStore.activeFindingsCount).toBe(0)
     })
+
+    it('renders sequential #01-#15 ordinal badges on tool cards and wraps step-timeline with flex-wrap', async () => {
+      const wrapper = await createWrapper()
+
+      const badgeDns = wrapper.find('[data-testid="tool-order-badge-dns_lookup"]')
+      expect(badgeDns.exists()).toBe(true)
+      expect(badgeDns.text()).toBe('#01')
+
+      const badgeHttp = wrapper.find('[data-testid="tool-order-badge-http_headers"]')
+      expect(badgeHttp.exists()).toBe(true)
+      expect(badgeHttp.text()).toBe('#04')
+
+      const timeline = wrapper.find('[data-testid="step-timeline"]')
+      expect(timeline.exists()).toBe(true)
+      expect(timeline.classes()).toContain('flex-wrap')
+    })
+
+    it('resetWorkspace() clears chatMessages, latestAdvisory, and steps on mount, session switch, and unmount', async () => {
+      const workspaceStore = useWorkspaceStore()
+      workspaceStore.chatMessages = [
+        { id: 'msg-old', role: 'user', content: 'Old question', timestamp: '2026-10-15T00:00:00Z' }
+      ]
+      workspaceStore.latestAdvisory = {
+        stepId: 'step-old',
+        comment: 'Old advisory',
+        suggestedTool: null,
+        suggestedReason: null,
+        timestamp: '2026-10-15T00:00:00Z'
+      }
+
+      // 1. On mount: loadWorkspaceData calls resetWorkspace()
+      const wrapper = await createWrapper()
+      expect(workspaceStore.chatMessages).toHaveLength(0)
+      expect(workspaceStore.latestAdvisory).toBeNull()
+
+      // Populate again
+      workspaceStore.chatMessages = [
+        { id: 'msg-new', role: 'user', content: 'New question', timestamp: '2026-10-15T01:00:00Z' }
+      ]
+      workspaceStore.latestAdvisory = {
+        stepId: 'step-new',
+        comment: 'New advisory',
+        suggestedTool: null,
+        suggestedReason: null,
+        timestamp: '2026-10-15T01:00:00Z'
+      }
+
+      // 2. On unmount: onUnmounted calls resetWorkspace()
+      wrapper.unmount()
+      expect(workspaceStore.chatMessages).toHaveLength(0)
+      expect(workspaceStore.latestAdvisory).toBeNull()
+    })
   })
 })
 

@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 public class TechDetectTool implements OspysinTool {
 
     public static final String TOOL_ID = "tech_detect";
-    public static final long WIRE_CAP_BYTES = 512 * 1024L; // 512 KB
-    public static final long DECOMPRESSED_CAP_BYTES = 1024 * 1024L; // 1 MB
+    public static final long WIRE_CAP_BYTES = 1024 * 1024L; // 1 MB
+    public static final long DECOMPRESSED_CAP_BYTES = 5 * 1024 * 1024L; // 5 MB
     public static final int READ_TIMEOUT_MS = 10_000; // 10s
 
     // Server header patterns

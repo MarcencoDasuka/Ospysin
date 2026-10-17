@@ -849,7 +849,7 @@ describe('Workspace Store (useWorkspaceStore)', () => {
       expect(store.findings[0].evidence[0]).toEqual(evidenceItem)
     })
 
-    it('fetchReportHtml retrieves standalone HTML document as text', async () => {
+    it('fetchReportHtml retrieves standalone HTML document as text with explicit Accept header', async () => {
       const rawHtml = '<!DOCTYPE html><html><body>Report</body></html>'
       vi.spyOn(http, 'get').mockResolvedValueOnce({ data: rawHtml } as any)
 
@@ -857,7 +857,10 @@ describe('Workspace Store (useWorkspaceStore)', () => {
       const result = await store.fetchReportHtml('session-123')
 
       expect(http.get).toHaveBeenCalledWith('/sessions/session-123/report', {
-        responseType: 'text'
+        responseType: 'text',
+        headers: {
+          Accept: 'text/html, application/xhtml+xml, application/problem+json;q=0.9, */*;q=0.8'
+        }
       })
       expect(result).toBe(rawHtml)
     })

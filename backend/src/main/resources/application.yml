@@ -1,5 +1,5 @@
 server:
-  address: ${APP_BIND_HOST:127.0.0.1}
+  address: ${SERVER_ADDRESS:${APP_BIND_HOST:127.0.0.1}}
   port: ${SERVER_PORT:8080}
   shutdown: graceful
   servlet:

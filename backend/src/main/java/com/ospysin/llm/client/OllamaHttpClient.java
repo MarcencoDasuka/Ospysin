@@ -114,8 +114,11 @@ public class OllamaHttpClient implements LlmClient {
                 throw new LlmClientException("Ollama returned HTTP " + response.statusCode() + ": " + response.body());
             }
         } catch (IOException ex) {
-            log.warn("Ollama HTTP I/O failure: {}", ex.getMessage());
-            throw new LlmClientException("Failed to communicate with Ollama: " + ex.getMessage(), ex);
+            String reason = ex.getMessage() != null && !ex.getMessage().isBlank()
+                    ? ex.getClass().getSimpleName() + ": " + ex.getMessage()
+                    : ex.getClass().getSimpleName() + " connecting to " + baseUrl;
+            log.warn("Ollama HTTP I/O failure: {}", reason);
+            throw new LlmClientException("Failed to communicate with Ollama: " + reason, ex);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new LlmClientException("Ollama request interrupted", ex);

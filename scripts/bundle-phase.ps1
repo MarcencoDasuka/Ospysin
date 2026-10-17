@@ -234,11 +234,34 @@ try {
             $anyTestsRun = $true
             $Lines.Add("### Backend Verification (Maven)")
             $Lines.Add("")
-            Write-Host "[*] Executing Maven tests: $mvnCmd test in $mvnDir..." -ForegroundColor Cyan
+            $dockerAvailable = $false
+            try {
+                $null = & docker info 2>&1
+                if ($LASTEXITCODE -eq 0) { $dockerAvailable = $true }
+            } catch {
+                $dockerAvailable = $false
+            }
+
+            $mvnArgs = @("test")
+            if (-not $dockerAvailable) {
+                Write-Host "[!] Docker daemon not detected; executing unit tests (*Test) without Testcontainers..." -ForegroundColor Yellow
+                $Lines.Add("> [!NOTE]")
+                $Lines.Add("> Docker daemon offline on host: executing unit tests (${bt}*Test${bt}) to prevent Testcontainers timeout/failure.")
+                $Lines.Add("")
+                $mvnArgs = @("test", "-Dtest=*Test")
+            }
+
+            Write-Host "[*] Executing Maven tests: $mvnCmd $($mvnArgs -join ' ') in $mvnDir..." -ForegroundColor Cyan
+
+            # Clean previous surefire reports so old runs don't leak into current snapshot
+            $surefireDir = Join-Path $mvnDir "target/surefire-reports"
+            if (Test-Path $surefireDir) {
+                Remove-Item -Path "$surefireDir/*" -Recurse -Force -ErrorAction SilentlyContinue
+            }
 
             Push-Location $mvnDir
             try {
-                $mvnOutput = & $mvnCmd test 2>&1 | Out-String
+                $mvnOutput = & $mvnCmd @mvnArgs 2>&1 | Out-String
                 $mvnExit = $LASTEXITCODE
             } finally {
                 Pop-Location
@@ -313,8 +336,9 @@ try {
                 try {
                     $env:NO_COLOR = "1"
                     $pkgData = Get-Content $fePkg -Raw | ConvertFrom-Json
+                    $hasTestRun = ($pkgData.scripts -and $pkgData.scripts.'test:run')
                     $hasTest = ($pkgData.scripts -and $pkgData.scripts.test)
-                    $pnpmArgs = if ($hasTest) { @("test", "--run") } else { @("build") }
+                    $pnpmArgs = if ($hasTestRun) { @("run", "test:run") } elseif ($hasTest) { @("test", "--", "--run") } else { @("build") }
 
                     $feOutput = & $pnpmCmd @pnpmArgs 2>&1 | Out-String
                     $feExit = $LASTEXITCODE

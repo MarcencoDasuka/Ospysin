@@ -57,7 +57,7 @@ public class FindingController {
         return findingTxService.attachEvidence(id, findingId, request);
     }
 
-    @GetMapping(value = "/report", produces = MediaType.TEXT_HTML_VALUE)
+    @GetMapping(value = "/report", produces = {MediaType.TEXT_HTML_VALUE, MediaType.APPLICATION_PROBLEM_JSON_VALUE, MediaType.ALL_VALUE})
     public ResponseEntity<String> getReportHtml(@PathVariable("id") UUID id) {
         String html = sessionReportService.generateStandaloneHtmlReport(id);
         return ResponseEntity.ok()

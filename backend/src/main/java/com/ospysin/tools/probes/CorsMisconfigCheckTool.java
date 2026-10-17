@@ -30,8 +30,8 @@ public class CorsMisconfigCheckTool implements OspysinTool {
     private static final Logger log = LoggerFactory.getLogger(CorsMisconfigCheckTool.class);
 
     public static final String TOOL_ID = "cors_misconfig_check";
-    public static final long WIRE_CAP_BYTES = 32 * 1024L; // 32 KB
-    public static final long DECOMPRESSED_CAP_BYTES = 32 * 1024L; // 32 KB
+    public static final long WIRE_CAP_BYTES = 512 * 1024L; // 512 KB
+    public static final long DECOMPRESSED_CAP_BYTES = 2 * 1024 * 1024L; // 2 MB
     public static final int READ_TIMEOUT_MS = 10_000; // 10s
 
     public static final String DEFAULT_REMEDIATION =

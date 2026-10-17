@@ -794,7 +794,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     error.value = null
     try {
       const response = await http.get<string>(`/sessions/${sessionId}/report`, {
-        responseType: 'text'
+        responseType: 'text',
+        headers: {
+          Accept: 'text/html, application/xhtml+xml, application/problem+json;q=0.9, */*;q=0.8'
+        }
       })
       return response.data
     } catch (err) {

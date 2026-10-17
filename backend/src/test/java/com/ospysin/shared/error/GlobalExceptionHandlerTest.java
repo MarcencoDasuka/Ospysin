@@ -66,6 +66,16 @@ class GlobalExceptionHandlerTest {
         public String testParamMismatch(@PathVariable("id") java.util.UUID id) {
             return id.toString();
         }
+
+        @GetMapping("/media-not-acceptable")
+        public String testMediaNotAcceptable() throws org.springframework.web.HttpMediaTypeNotAcceptableException {
+            throw new org.springframework.web.HttpMediaTypeNotAcceptableException("No acceptable representation");
+        }
+
+        @GetMapping("/async-timeout")
+        public String testAsyncTimeout() {
+            throw new org.springframework.web.context.request.async.AsyncRequestTimeoutException();
+        }
     }
 
     @BeforeEach
@@ -181,5 +191,23 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(500))
                 .andExpect(jsonPath("$.detail", not(containsString("SELECT * FROM secrets"))))
                 .andExpect(jsonPath("$.detail").value("An unexpected internal error occurred. Please consult server administrator logs."));
+    }
+
+    @Test
+    @DisplayName("Returns 406 Not Acceptable on HttpMediaTypeNotAcceptableException")
+    void shouldReturn406OnMediaTypeNotAcceptable() throws Exception {
+        mockMvc.perform(get("/test/media-not-acceptable"))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.type").value("https://ospysin.dev/errors/not-acceptable"))
+                .andExpect(jsonPath("$.title").value("Not Acceptable"))
+                .andExpect(jsonPath("$.status").value(406));
+    }
+
+    @Test
+    @DisplayName("Returns 204 No Content on AsyncRequestTimeoutException without logging 500")
+    void shouldReturn204OnAsyncRequestTimeout() throws Exception {
+        mockMvc.perform(get("/test/async-timeout"))
+                .andExpect(status().isNoContent());
     }
 }

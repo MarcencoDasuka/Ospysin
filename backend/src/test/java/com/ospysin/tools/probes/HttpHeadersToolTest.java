@@ -484,6 +484,34 @@ class HttpHeadersToolTest {
         assertThat(dnsCallCount.get()).isEqualTo(0);
     }
 
+    @Test
+    @DisplayName("Successfully processes response with HTML body > 64 KB without throwing PayloadLimitExceededException")
+    void handlesBodyGreaterThan64Kb() throws Exception {
+        String largeBody = "A".repeat(100 * 1024); // 100 KB body
+        stubFor(get(urlEqualTo("/large-body"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Server", "nginx/1.24.0")
+                        .withHeader("Content-Type", "text/html; charset=UTF-8")
+                        .withBody(largeBody)));
+
+        String targetUrl = "http://127.0.0.1:" + wireMockPort + "/large-body";
+        ToolExecutionContext context = new ToolExecutionContext(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                targetUrl,
+                SessionMode.LOCAL,
+                localScopeAsset,
+                Map.of(),
+                null
+        );
+
+        ToolExecutionOutcome outcome = tool.execute(context);
+        assertThat(outcome.hasErrors()).isFalse();
+        assertThat(outcome.parsedData().get("statusCode")).isEqualTo(200);
+        assertThat(outcome.parsedData().get("serverBanner")).isEqualTo("nginx/1.24.0");
+    }
+
     private static byte[] gzip(String text) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {

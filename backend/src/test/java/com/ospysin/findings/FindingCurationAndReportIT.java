@@ -612,6 +612,17 @@ class FindingCurationAndReportIT extends AbstractIntegrationTest {
 
     @Test
     @WithMockUser(username = "auditor", roles = {"AUDITOR"})
+    @DisplayName("GET /api/sessions/{id}/report succeeds when client sends Accept: application/json, application/problem+json")
+    void testGetReportHtmlWithDefaultAxiosAcceptHeader() throws Exception {
+        mockMvc.perform(get("/api/sessions/" + sessionA.getId() + "/report")
+                        .accept("application/json, application/problem+json"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andExpect(content().string(containsString("<!DOCTYPE html>")));
+    }
+
+    @Test
+    @WithMockUser(username = "auditor", roles = {"AUDITOR"})
     @DisplayName("Strict XSS Falsification Test: Malicious script tags in finding title, description, and snippet are escaped")
     void testXssFalsificationInHtmlReport() throws Exception {
         String xssPayload = "<script>alert('xss-exploit')</script><img src=x onerror=alert(1)>";

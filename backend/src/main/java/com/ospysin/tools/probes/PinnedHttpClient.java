@@ -55,12 +55,12 @@ public class PinnedHttpClient {
     }
 
     /**
-     * Executes an HTTP GET probe against a target URI with default 64 KB caps and 10s read timeout.
+     * Executes an HTTP GET probe against a target URI with default 1 MB wire cap, 5 MB decompressed cap, and 10s read timeout.
      */
     public PinnedProbeResult executeWithRedirects(URI initialUri, InetAddress initialIp, boolean followRedirects,
                                                   SessionMode mode, ScopeAsset scopeAsset) throws IOException, PolicyViolationException {
         return executeWithRedirects(initialUri, initialIp, followRedirects, mode, scopeAsset,
-                64 * 1024L, 64 * 1024L, DEFAULT_READ_TIMEOUT_MS);
+                1024 * 1024L, 5 * 1024 * 1024L, DEFAULT_READ_TIMEOUT_MS);
     }
 
     /**
